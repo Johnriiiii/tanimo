@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect, useRef } from "react"
 import {
   View,
@@ -217,7 +219,7 @@ const Login = ({ navigation }) => {
       return false
     }
 
-    if (password.length < 6) {
+    if (password.length < 5) {
       showToast("error", "Password Too Short", "Password must be at least 6 characters")
       return false
     }
@@ -270,12 +272,33 @@ const Login = ({ navigation }) => {
         ["isAuthenticated", "true"],
       ])
 
-      showToast("success", "Login Successful", `Welcome back, ${data.user.name || data.user.email}!`)
+      // Check user type and navigate accordingly
+      const userType = data.user.userType || "user"
+      console.log("User type detected:", userType)
+
+      let routeName = "Home" // Default route for regular users
+
+      if (userType === "vendor") {
+        routeName = "VendorHome"
+      } else if (userType === "gardener") {
+        routeName = "Home" 
+      } else {
+        routeName = "Home" // Regular user home
+      } 
+      console.log("Navigating to:", routeName)
 
       navigation.reset({
         index: 0,
-        routes: [{ name: "Home" }],
+        routes: [{ name: routeName }],
       })
+
+      const welcomeMessages = {
+        vendor: `Welcome back to your marketplace, ${data.user.name || data.user.email}! 🏪`,
+        gardener: `Welcome back, professional gardener ${data.user.name || data.user.email}! 🌿`,
+        user: `Welcome back, ${data.user.name || data.user.email}! 🌱`,
+      }
+
+      showToast("success", "Login Successful", welcomeMessages[userType] || welcomeMessages.user)
     } catch (error) {
       console.error("Login Error:", error)
       showToast("error", "Login Failed", error.message || "An error occurred during login")
@@ -353,9 +376,8 @@ const Login = ({ navigation }) => {
                 </View>
               </View>
             </Animated.View>
-            <Text style={styles.welcomeText}>TANIMO</Text>
-            <Text style={styles.subtitle}>Intelligent Plants Monitoring and Distribution App
-</Text>
+            <Text style={styles.welcomeText}>Plant Care Hub</Text>
+            <Text style={styles.subtitle}>Nurture your green companions</Text>
 
             {/* Weather Indicator */}
             <View style={styles.weatherIndicator}>
@@ -452,7 +474,7 @@ const Login = ({ navigation }) => {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <>
-                    <Text style={styles.loginButtonText}>Log In</Text>
+                    <Text style={styles.loginButtonText}>Grow & Sign In</Text>
                     <Ionicons name="leaf" size={20} color="#fff" style={styles.buttonIcon} />
                   </>
                 )}
@@ -465,8 +487,27 @@ const Login = ({ navigation }) => {
               <Text style={styles.tipText}>💡 Tip: Water your plants when the soil feels dry to touch</Text>
             </View>
 
-          
-          
+            {/* Social Login Section */}
+            <View style={styles.socialSection}>
+              <View style={styles.dividerContainer}>
+                <View style={styles.divider} />
+                <Text style={styles.dividerText}>or connect with</Text>
+                <View style={styles.divider} />
+              </View>
+
+              <View style={styles.socialButtons}>
+                <TouchableOpacity style={styles.socialButton}>
+                  <Ionicons name="logo-google" size={24} color="#DB4437" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.socialButton}>
+                  <Ionicons name="logo-apple" size={24} color="#000" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.socialButton}>
+                  <Ionicons name="logo-facebook" size={24} color="#4267B2" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
             {/* Footer */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>New to plant care? </Text>

@@ -13,25 +13,22 @@ import {
   StatusBar,
   Platform,
   Easing,
+  Image,
 } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import { Ionicons } from "@expo/vector-icons"
-import CustomDrawer from "./CustomDrawer"
+import FarmerCustomDrawer from "./farmerCustomDrawer"
 
 const { width, height } = Dimensions.get("window")
 
-// Function to get status bar height for different devices
 const getStatusBarHeight = () => {
   if (Platform.OS === "ios") {
-    if (height >= 812) {
-      return 44
-    }
+    if (height >= 812) return 44
     return 20
   }
   return StatusBar.currentHeight || 24
 }
 
-// Animated Weather Element
 const WeatherElement = ({ type, delay = 0, style }) => {
   const animatedValue = useRef(new Animated.Value(0)).current
   const rotateValue = useRef(new Animated.Value(0)).current
@@ -44,14 +41,14 @@ const WeatherElement = ({ type, delay = 0, style }) => {
             toValue: 1,
             duration: 3000 + Math.random() * 2000,
             useNativeDriver: true,
-          }),
+          })
         ),
         Animated.loop(
           Animated.timing(rotateValue, {
             toValue: 1,
             duration: 4000,
             useNativeDriver: true,
-          }),
+          })
         ),
       ]).start()
     }
@@ -83,21 +80,14 @@ const WeatherElement = ({ type, delay = 0, style }) => {
   }
 
   return (
-    <Animated.View
-      style={[
-        style,
-        {
-          transform: [{ translateY }, { rotate }],
-        },
-      ]}
-    >
-      {getIcon()}
-    </Animated.View>
+<Animated.View style={[style, { transform: [{ translateY }, { rotate }] }]}>
+  {getIcon()}
+</Animated.View>
+
   )
 }
 
-// Plant Care Card Component
-const PlantCareCard = ({ title, icon, description, color, onPress }) => {
+const FarmCard = ({ title, icon, description, color, onPress }) => {
   const scaleValue = useRef(new Animated.Value(1)).current
 
   const handlePressIn = () => {
@@ -115,14 +105,17 @@ const PlantCareCard = ({ title, icon, description, color, onPress }) => {
   }
 
   return (
-    <TouchableOpacity onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} activeOpacity={1}>
+    <TouchableOpacity 
+      onPress={onPress} 
+      onPressIn={handlePressIn} 
+      onPressOut={handlePressOut} 
+      activeOpacity={1}
+    >
       <Animated.View
         style={[
-          styles.plantCareCard,
+          styles.farmCard,
           { backgroundColor: color },
-          {
-            transform: [{ scale: scaleValue }],
-          },
+          { transform: [{ scale: scaleValue }] },
         ]}
       >
         <View style={styles.cardIconContainer}>
@@ -135,7 +128,6 @@ const PlantCareCard = ({ title, icon, description, color, onPress }) => {
   )
 }
 
-// Weather Status Component
 const WeatherStatus = ({ weatherMode }) => {
   const pulseAnimation = useRef(new Animated.Value(1)).current
 
@@ -152,7 +144,7 @@ const WeatherStatus = ({ weatherMode }) => {
           duration: 2000,
           useNativeDriver: true,
         }),
-      ]),
+      ])
     ).start()
   }, [])
 
@@ -172,13 +164,13 @@ const WeatherStatus = ({ weatherMode }) => {
   const getWeatherText = () => {
     switch (weatherMode) {
       case "sunny":
-        return "Perfect day for outdoor plants!"
+        return "Ideal for most crops today!"
       case "rainy":
-        return "Great natural watering day!"
+        return "Natural irrigation occurring"
       case "cloudy":
-        return "Gentle light for sensitive plants"
+        return "Good for delicate plants"
       default:
-        return "Perfect day for outdoor plants!"
+        return "Ideal for most crops today!"
     }
   }
 
@@ -186,9 +178,7 @@ const WeatherStatus = ({ weatherMode }) => {
     <Animated.View
       style={[
         styles.weatherStatus,
-        {
-          transform: [{ scale: pulseAnimation }],
-        },
+        { transform: [{ scale: pulseAnimation }] },
       ]}
     >
       {getWeatherIcon()}
@@ -197,7 +187,7 @@ const WeatherStatus = ({ weatherMode }) => {
   )
 }
 
-const Home = ({ navigation }) => {
+const FarmerHomepage = ({ navigation }) => {
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [weatherMode, setWeatherMode] = useState("sunny")
   const slideAnim = useRef(new Animated.Value(-width * 0.8)).current
@@ -205,14 +195,12 @@ const Home = ({ navigation }) => {
   const headerAnimation = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
-    // Header entrance animation
     Animated.timing(headerAnimation, {
       toValue: 1,
       duration: 1000,
       useNativeDriver: true,
     }).start()
 
-    // Change weather mode periodically
     const weatherInterval = setInterval(() => {
       const modes = ["sunny", "rainy", "cloudy"]
       setWeatherMode(modes[Math.floor(Math.random() * modes.length)])
@@ -223,7 +211,6 @@ const Home = ({ navigation }) => {
 
   const openDrawer = () => {
     setDrawerVisible(true)
-
     Animated.parallel([
       Animated.timing(slideAnim, {
         toValue: 0,
@@ -272,34 +259,34 @@ const Home = ({ navigation }) => {
     }
   }
 
-  const plantCareOptions = [
+  const farmOptions = [
     {
-      title: "My Plants",
+      title: "My Crops",
       icon: "leaf",
-      description: "View your plant collection",
+      description: "Manage your current crops",
       color: "#22c55e",
-      onPress: () => navigation.navigate("MyPlants"),
+      onPress: () => navigation.navigate("MyCrops"),
     },
     {
-      title: "Watering Schedule",
+      title: "Irrigation",
       icon: "water",
-      description: "Check watering reminders",
+      description: "Check watering schedule",
       color: "#3b82f6",
-      onPress: () => navigation.navigate("WateringSchedule"),
+      onPress: () => navigation.navigate("Irrigation"),
     },
     {
-      title: "Plant Care Tips",
-      icon: "bulb",
-      description: "Learn plant care basics",
+      title: "Harvest",
+      icon: "time",
+      description: "Upcoming harvest dates",
       color: "#f59e0b",
-      onPress: () => navigation.navigate("PlantTips"),
+      onPress: () => navigation.navigate("Harvest"),
     },
     {
-      title: "Plant Journal",
-      icon: "journal",
-      description: "Track plant growth",
+      title: "Market",
+      icon: "cart",
+      description: "Connect with vendors",
       color: "#8b5cf6",
-      onPress: () => navigation.navigate("PlantJournal"),
+      onPress: () => navigation.navigate("Market"),
     },
   ]
 
@@ -317,7 +304,6 @@ const Home = ({ navigation }) => {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={getWeatherGradient()[0]} />
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Floating Weather Elements */}
         {Array.from({ length: 8 }, (_, i) => (
           <WeatherElement
             key={i}
@@ -333,7 +319,6 @@ const Home = ({ navigation }) => {
           />
         ))}
 
-        {/* Header Section */}
         <LinearGradient colors={getWeatherGradient()} style={styles.header}>
           <Animated.View
             style={[
@@ -359,22 +344,20 @@ const Home = ({ navigation }) => {
             </View>
 
             <View style={styles.welcomeSection}>
-              <Text style={styles.headerTitle}>Welcome back!</Text>
-              <Text style={styles.headerSubtitle}>What would you like to learn today?</Text>
+              <Text style={styles.headerTitle}>Farm Dashboard</Text>
+              <Text style={styles.headerSubtitle}>Manage your farm operations</Text>
             </View>
 
             <WeatherStatus weatherMode={weatherMode} />
           </Animated.View>
         </LinearGradient>
 
-        {/* Main Content */}
         <View style={styles.content}>
-          {/* Plant Care Dashboard */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your Plant Care Dashboard</Text>
-            <View style={styles.plantCareGrid}>
-              {plantCareOptions.map((option, index) => (
-                <PlantCareCard
+            <Text style={styles.sectionTitle}>Farm Management</Text>
+            <View style={styles.farmGrid}>
+              {farmOptions.map((option, index) => (
+                <FarmCard
                   key={index}
                   title={option.title}
                   icon={option.icon}
@@ -386,17 +369,15 @@ const Home = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Daily Plant Tip */}
           <View style={styles.section}>
             <View style={styles.tipCard}>
               <LinearGradient colors={["#22c55e", "#16a34a"]} style={styles.tipGradient}>
                 <View style={styles.tipContent}>
                   <Ionicons name="leaf" size={32} color="#fff" style={styles.tipIcon} />
                   <View style={styles.tipTextContainer}>
-                    <Text style={styles.tipTitle}>Daily Plant Tip</Text>
+                    <Text style={styles.tipTitle}>Farmers Tip</Text>
                     <Text style={styles.tipText}>
-                      Most houseplants prefer bright, indirect light. Place them near a window but not in direct
-                      sunlight to avoid leaf burn.
+                      Rotate your crops regularly to maintain soil health and prevent pest buildup.
                     </Text>
                   </View>
                 </View>
@@ -404,29 +385,28 @@ const Home = ({ navigation }) => {
             </View>
           </View>
 
-          {/* Quick Actions */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Quick Actions</Text>
             <View style={styles.quickActions}>
               <TouchableOpacity
                 style={styles.quickActionButton}
-                onPress={() => navigation.navigate("AddPlant")}
+                onPress={() => navigation.navigate("AddCrop")}
                 activeOpacity={0.8}
               >
                 <LinearGradient colors={["#22c55e", "#16a34a"]} style={styles.quickActionGradient}>
                   <Ionicons name="add" size={24} color="#fff" />
-                  <Text style={styles.quickActionText}>Add Plant</Text>
+                  <Text style={styles.quickActionText}>Add Crop</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.quickActionButton}
-                onPress={() => navigation.navigate("WaterPlants")}
+                onPress={() => navigation.navigate("Irrigation")}
                 activeOpacity={0.8}
               >
                 <LinearGradient colors={["#3b82f6", "#1d4ed8"]} style={styles.quickActionGradient}>
                   <Ionicons name="water" size={24} color="#fff" />
-                  <Text style={styles.quickActionText}>Water Plants</Text>
+                  <Text style={styles.quickActionText}>Water Crops</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -434,7 +414,6 @@ const Home = ({ navigation }) => {
         </View>
       </ScrollView>
 
-      {/* Custom Drawer Modal */}
       <Modal
         visible={drawerVisible}
         transparent={true}
@@ -468,7 +447,7 @@ const Home = ({ navigation }) => {
               },
             ]}
           >
-            <CustomDrawer navigation={navigation} onClose={closeDrawer} />
+            <FarmerCustomDrawer navigation={navigation} onClose={closeDrawer} />
           </Animated.View>
         </View>
       </Modal>
@@ -549,12 +528,12 @@ const styles = StyleSheet.create({
     color: "#333",
     marginBottom: 15,
   },
-  plantCareGrid: {
+  farmGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
-  plantCareCard: {
+  farmCard: {
     width: "48%",
     borderRadius: 15,
     padding: 20,
@@ -661,4 +640,4 @@ const styles = StyleSheet.create({
   },
 })
 
-export default Home
+export default FarmerHomepage

@@ -17,12 +17,13 @@ import {
 import { LinearGradient } from "expo-linear-gradient"
 import { Ionicons } from "@expo/vector-icons"
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { showToast } from "../utils/toast"
-import API_BASE_URL from "../utils/api"
+import { showToast } from "../../utils/toast"
+import API_BASE_URL from "../../utils/api"
+
 
 const { height } = Dimensions.get("window")
 
-// Animated Plant Component for Drawer
+// Animated Plant Component for Drawer (keep existing animation code)
 const DrawerPlant = ({ delay = 0 }) => {
   const growAnimation = useRef(new Animated.Value(0)).current
   const swayAnimation = useRef(new Animated.Value(0)).current
@@ -81,27 +82,41 @@ const CustomDrawer = ({ navigation, onClose }) => {
   const [loading, setLoading] = useState(true)
   const [weatherMode, setWeatherMode] = useState("sunny")
 
+  // Original menu items
   const menuItems = [
     { id: "1", title: "Garden Home", icon: "home-outline", route: "Home" },
-    { id: "2", title: "My Plants", icon: "leaf-outline", route: "MyPlants" },
-    { id: "3", title: "Plant Care", icon: "water-outline", route: "PlantCare" },
-    { id: "4", title: "Plant Journal", icon: "journal-outline", route: "PlantJournal" },
-    { id: "5", title: "Plant Library", icon: "library-outline", route: "PlantLibrary" },
-    { id: "6", title: "Weather", icon: "partly-sunny-outline", route: "Weather" },
-    { id: "7", title: "Reminders", icon: "notifications-outline", route: "Reminders" },
-    { id: "8", title: "Plant Scanner", icon: "camera-outline", route: "PlantScanner" },
+    { id: "2", title: "Ai ChatBot", icon: "hardware-chip-outline", route: "AiChatBot" }
+
+
+
   ]
 
+  // New sales-related menu items
+  const salesItems = [
+    { id: "s1", title: "Sell Plants", icon: "cash-outline", route: "SellPlants" },
+    { id: "s2", title: "View Inquiries/Orders", icon: "list-outline", route: "Orders" },
+    { id: "s3", title: "Chat with Vendors", icon: "chatbubbles-outline", route: "VendorChat" },
+    { id: "s4", title: "Manage Vegetable Stocks", icon: "archive-outline", route: "Inventory" },
+  ]
+
+  // New monitoring items
+  const monitoringItems = [
+    { id: "m1", title: "Weather Updates", icon: "partly-sunny-outline", route: "weather" },
+    { id: "m2", title: "Plant Care Monitoring", icon: "analytics-outline", route: "imageProcessing" },
+    { id: "m3", title: "Plant Library", icon: "library-outline", route: "PlantLibrary" },
+  ]
+
+  // Original bottom items
   const bottomItems = [
     { id: "9", title: "Settings", icon: "settings-outline", route: "Settings" },
     { id: "10", title: "Plant Tips", icon: "bulb-outline", route: "PlantTips" },
     { id: "11", title: "About Garden", icon: "information-circle-outline", route: "About" },
   ]
 
+  // Keep all existing effects and methods
   useEffect(() => {
     fetchProfile()
 
-    // Change weather mode periodically
     const weatherInterval = setInterval(() => {
       const modes = ["sunny", "rainy", "cloudy"]
       setWeatherMode(modes[Math.floor(Math.random() * modes.length)])
@@ -220,6 +235,13 @@ const CustomDrawer = ({ navigation, onClose }) => {
     </TouchableOpacity>
   )
 
+  const renderMenuSection = (title, items) => (
+    <View style={styles.menuSection}>
+      {title && <Text style={styles.sectionHeader}>{title}</Text>}
+      {items.map((item) => renderMenuItem(item))}
+    </View>
+  )
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -239,12 +261,12 @@ const CustomDrawer = ({ navigation, onClose }) => {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Floating Plants */}
+        {/* Keep all existing decorative elements */}
         <DrawerPlant delay={0} />
         <DrawerPlant delay={500} />
         <DrawerPlant delay={1000} />
 
-        {/* Header Section */}
+        {/* Original header section */}
         <LinearGradient colors={getWeatherGradient()} style={styles.header}>
           <TouchableOpacity style={styles.closeButton} onPress={onClose} activeOpacity={0.7}>
             <Ionicons name="close" size={28} color="#fff" />
@@ -253,7 +275,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
           <View style={styles.profileSection}>
             <View style={styles.profileImageContainer}>
               <Image
-                source={user.profilePhoto ? { uri: user.profilePhoto } : require("../assets/default-profile.png")}
+                source={user.profilePhoto ? { uri: user.profilePhoto } : require("../../assets/default-profile.png")}
                 style={styles.profileImage}
               />
               <View style={styles.plantBadge}>
@@ -288,14 +310,27 @@ const CustomDrawer = ({ navigation, onClose }) => {
           </View>
         </LinearGradient>
 
-        {/* Menu Items */}
+        {/* Menu Container - Now with added sections */}
         <View style={styles.menuContainer}>
+          {/* Original Garden Menu */}
           <View style={styles.menuSection}>
             <Text style={styles.sectionTitle}>🌱 Garden Menu</Text>
             {menuItems.map((item) => renderMenuItem(item))}
           </View>
 
-          {/* Plant Care Tip Banner */}
+          {/* New Sales Section */}
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>💰 Sales</Text>
+            {salesItems.map((item) => renderMenuItem(item))}
+          </View>
+
+          {/* New Monitoring Section */}
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>🔍 Plant Monitoring</Text>
+            {monitoringItems.map((item) => renderMenuItem(item))}
+          </View>
+
+          {/* Keep original plant care tip banner */}
           <TouchableOpacity
             style={styles.offerBanner}
             onPress={() => handleNavigation("PlantTips")}
@@ -313,7 +348,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Daily Plant Tip */}
+          {/* Keep original daily tip */}
           <View style={styles.tipContainer}>
             <View style={styles.tipHeader}>
               <Ionicons name="bulb" size={20} color="#22c55e" />
@@ -324,13 +359,13 @@ const CustomDrawer = ({ navigation, onClose }) => {
             </Text>
           </View>
 
-          {/* Bottom Menu Items */}
+          {/* Original bottom items */}
           <View style={styles.bottomSection}>
             <View style={styles.divider} />
             {bottomItems.map((item) => renderMenuItem(item, true))}
           </View>
 
-          {/* Logout Button */}
+          {/* Keep original logout button */}
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.7}>
             <Ionicons name="log-out-outline" size={24} color="#ef4444" />
             <Text style={styles.logoutText}>Leave Garden</Text>

@@ -14,6 +14,7 @@ import {
   Platform,
   Dimensions,
   Animated,
+  Alert,
 } from "react-native"
 import { LinearGradient } from "expo-linear-gradient"
 import { Ionicons } from "@expo/vector-icons"
@@ -24,6 +25,98 @@ import { manipulateAsync, SaveFormat } from "expo-image-manipulator"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 
 const { width, height } = Dimensions.get("window")
+
+// User Type Selection Component
+const UserTypeCard = ({ type, icon, title, description, selected, onPress, color }) => {
+  const scaleAnimation = useRef(new Animated.Value(1)).current
+  const glowAnimation = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    if (selected) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnimation, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnimation, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ]),
+      ).start()
+    } else {
+      glowAnimation.setValue(0)
+    }
+  }, [selected])
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnimation, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start()
+  }
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnimation, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start()
+  }
+
+  const glowOpacity = glowAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.8],
+  })
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={1}
+      style={styles.userTypeCardContainer}
+    >
+      <Animated.View
+        style={[
+          styles.userTypeCard,
+          selected && styles.userTypeCardSelected,
+          {
+            transform: [{ scale: scaleAnimation }],
+            borderColor: selected ? color : "#e0e0e0",
+          },
+        ]}
+      >
+        {selected && (
+          <Animated.View
+            style={[
+              styles.selectedGlow,
+              {
+                opacity: glowOpacity,
+                shadowColor: color,
+              },
+            ]}
+          />
+        )}
+
+        <View style={[styles.userTypeIconContainer, { backgroundColor: color }]}>
+          <Ionicons name={icon} size={32} color="#fff" />
+        </View>
+
+        <Text style={styles.userTypeTitle}>{title}</Text>
+        <Text style={styles.userTypeDescription}>{description}</Text>
+
+        {selected && (
+          <View style={[styles.selectedBadge, { backgroundColor: color }]}>
+            <Ionicons name="checkmark" size={16} color="#fff" />
+          </View>
+        )}
+      </Animated.View>
+    </TouchableOpacity>
+  )
+}
 
 // Animated Plant Growth Component
 const PlantGrowth = ({ stage, style }) => {
@@ -205,7 +298,10 @@ const PlantInputField = ({
   )
 }
 
-const Register = ({ navigation }) => {
+const RegisterDebug = ({ navigation }) => {
+  // User Type Selection
+  const [userType, setUserType] = useState("")
+
   // User Information
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
@@ -226,10 +322,35 @@ const Register = ({ navigation }) => {
   const [postalCode, setPostalCode] = useState("")
   const [country, setCountry] = useState("")
 
+  // Debug state
+  const [debugInfo, setDebugInfo] = useState({
+    lastApiCall: null,
+    lastResponse: null,
+    formDataEntries: [],
+  })
+
   // Animation refs
   const headerAnimation = useRef(new Animated.Value(0)).current
   const formAnimation = useRef(new Animated.Value(0)).current
   const progressAnimation = useRef(new Animated.Value(0)).current
+
+  const userTypes = [
+
+    {
+      type: "gardener",
+      icon: "leaf",
+      title: "Professional Gardener",
+      description: "I provide gardening services and expertise",
+      color: "#3b82f6",
+    },
+    {
+      type: "vendor",
+      icon: "storefront",
+      title: "Plant Vendor",
+      description: "I sell plants, tools, and gardening supplies",
+      color: "#f59e0b",
+    },
+  ]
 
   useEffect(() => {
     // Header entrance animation
@@ -249,7 +370,7 @@ const Register = ({ navigation }) => {
     }).start()
 
     // Calculate form progress
-    const fields = [name, email, password, confirmPassword, street, city, country]
+    const fields = [userType, name, email, password, confirmPassword, street, city, country]
     const filledFields = fields.filter((field) => field.trim() !== "").length
     const progress = filledFields / fields.length
     setFormProgress(progress)
@@ -267,7 +388,7 @@ const Register = ({ navigation }) => {
     }, 10000)
 
     return () => clearInterval(weatherInterval)
-  }, [name, email, password, confirmPassword, street, city, country])
+  }, [userType, name, email, password, confirmPassword, street, city, country])
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
@@ -289,50 +410,90 @@ const Register = ({ navigation }) => {
         format: SaveFormat.JPEG,
       })
       setProfilePhoto(manipulatedImage)
+      console.log("📸 Profile photo selected:", manipulatedImage.uri)
     }
   }
 
   const validateForm = () => {
+    console.log("🔍 FORM VALIDATION START")
+    console.log("Current userType:", userType)
+    console.log("Form fields:", {
+      userType,
+      name: name.length,
+      email: email.length,
+      password: password.length,
+      confirmPassword: confirmPassword.length,
+      street: street.length,
+      city: city.length,
+      country: country.length,
+    })
+
+    if (!userType) {
+      console.log("❌ Validation failed: No userType selected")
+      showToast("error", "User Type Required", "Please choose your garden role first! 🌱")
+      return false
+    }
+
     if (!name || !email || !password || !confirmPassword) {
+      console.log("❌ Validation failed: Missing required fields")
       showToast("error", "Missing Fields", "Please plant all the required seeds (fill required fields)")
       return false
     }
 
     if (password !== confirmPassword) {
+      console.log("❌ Validation failed: Password mismatch")
       showToast("error", "Password Mismatch", "Your password seeds don't match!")
       return false
     }
 
     if (!/^\S+@\S+\.\S+$/.test(email)) {
+      console.log("❌ Validation failed: Invalid email format")
       showToast("error", "Invalid Email", "Please enter a valid email address")
       return false
     }
 
     if (!street || !city || !country) {
+      console.log("❌ Validation failed: Missing address fields")
       showToast("error", "Address Required", "Please provide your garden location (address)")
       return false
     }
 
+    console.log("✅ Form validation passed!")
     return true
   }
 
   const handleRegister = async () => {
-    if (!validateForm()) return
+    console.log("🚀 REGISTRATION PROCESS STARTED")
+    console.log("=".repeat(50))
+
+    if (!validateForm()) {
+      console.log("❌ Registration aborted: Form validation failed")
+      return
+    }
 
     setLoading(true)
 
     try {
+      console.log("📋 PREPARING REGISTRATION DATA")
+      console.log("Selected userType:", userType)
+      console.log("User info:", { name, email: email.toLowerCase() })
+      console.log("Address info:", { street, city, state, postalCode, country })
+      console.log("Has profile photo:", !!profilePhoto)
+
       const formData = new FormData()
 
-      formData.append("name", name)
-      formData.append("email", email.toLowerCase())
+      // Add userType first for debugging
+      formData.append("userType", userType)
+      formData.append("name", name.trim())
+      formData.append("email", email.toLowerCase().trim())
       formData.append("password", password)
 
-      formData.append("address[street]", street)
-      formData.append("address[city]", city)
-      formData.append("address[state]", state)
-      formData.append("address[postalCode]", postalCode)
-      formData.append("address[country]", country)
+      // Add address fields with the exact format the backend expects
+      formData.append("address[street]", street.trim())
+      formData.append("address[city]", city.trim())
+      formData.append("address[state]", state.trim())
+      formData.append("address[postalCode]", postalCode.trim())
+      formData.append("address[country]", country.trim())
 
       if (profilePhoto) {
         formData.append("profilePhoto", {
@@ -340,7 +501,26 @@ const Register = ({ navigation }) => {
           type: "image/jpeg",
           name: "profile.jpg",
         })
+        console.log("📷 Profile photo added to FormData")
       }
+
+      // Debug: Log FormData contents
+      console.log("📦 FORMDATA CONTENTS:")
+      const formDataEntries = []
+      for (const [key, value] of formData.entries()) {
+        const logValue = key === "password" ? "[HIDDEN]" : value
+        console.log(`  ${key}:`, logValue)
+        formDataEntries.push({ key, value: logValue })
+      }
+
+      setDebugInfo((prev) => ({
+        ...prev,
+        formDataEntries,
+        lastApiCall: new Date().toISOString(),
+      }))
+
+      console.log("🌐 MAKING API REQUEST")
+      console.log("API URL:", `${API_BASE_URL}/auth/register`)
 
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: "POST",
@@ -351,32 +531,96 @@ const Register = ({ navigation }) => {
         body: formData,
       })
 
-      const responseText = await response.text()
-      let data
+      console.log("📡 RESPONSE RECEIVED")
+      console.log("Status:", response.status)
+      console.log("Status Text:", response.statusText)
+      console.log("Headers:", Object.fromEntries(response.headers.entries()))
 
+      const responseText = await response.text()
+      console.log("📄 RAW RESPONSE:")
+      console.log(responseText)
+
+      let data
       try {
         data = JSON.parse(responseText)
+        console.log("✅ JSON PARSED SUCCESSFULLY")
       } catch (e) {
-        throw new Error("Invalid server response")
+        console.error("❌ JSON PARSE ERROR:", e)
+        console.error("Response text that failed to parse:", responseText)
+        setDebugInfo((prev) => ({
+          ...prev,
+          lastResponse: { error: "JSON Parse Failed", responseText },
+        }))
+        throw new Error("Invalid server response - not valid JSON")
       }
 
+      console.log("📊 PARSED RESPONSE DATA:")
+      console.log(JSON.stringify(data, null, 2))
+
+      setDebugInfo((prev) => ({
+        ...prev,
+        lastResponse: data,
+      }))
+
       if (!response.ok) {
+        console.log("❌ HTTP ERROR:", response.status)
+        console.log("Error message:", data.message)
+        throw new Error(data.message || `HTTP ${response.status}: Registration failed`)
+      }
+
+      if (!data.success) {
+        console.log("❌ API ERROR:", data.message)
         throw new Error(data.message || "Registration failed")
       }
 
+      console.log("🎉 REGISTRATION SUCCESSFUL!")
+      console.log("User created with userType:", data.user.userType)
+      console.log("User ID:", data.user.id)
+      console.log("Token received:", !!data.token)
+
+      // Store user data
       await AsyncStorage.multiSet([
         ["userToken", data.token],
         ["userData", JSON.stringify(data.user)],
+        ["isAuthenticated", "true"],
       ])
 
-      showToast("success", "Welcome to the Garden!", "Your plant care journey begins now! 🌱")
+      console.log("💾 User data stored in AsyncStorage")
+
+      const welcomeMessages = {
+        user: "Welcome to your plant care journey! 🌱",
+        gardener: "Welcome, professional gardener! Ready to help others grow? 🌿",
+        vendor: "Welcome to the marketplace! Time to grow your business! 🏪",
+      }
+
+      const welcomeMessage = welcomeMessages[data.user.userType] || welcomeMessages.user
+
+      showToast("success", "Welcome to the Garden!", welcomeMessage)
+
+      console.log("🏠 NAVIGATING TO HOME")
       navigation.replace("Home")
     } catch (error) {
-      console.error("Registration error:", error)
+      console.error("💥 REGISTRATION ERROR:")
+      console.error("Error type:", error.constructor.name)
+      console.error("Error message:", error.message)
+      console.error("Error stack:", error.stack)
+
+      setDebugInfo((prev) => ({
+        ...prev,
+        lastResponse: { error: error.message, stack: error.stack },
+      }))
+
       showToast("error", "Registration Failed", error.message || "Could not plant your account. Please try again.")
     } finally {
       setLoading(false)
+      console.log("🏁 REGISTRATION PROCESS COMPLETED")
+      console.log("=".repeat(50))
     }
+  }
+
+  const handleUserTypeSelection = (selectedType) => {
+    console.log("👤 USER TYPE SELECTED:", selectedType)
+    setUserType(selectedType)
   }
 
   const toggleShowPassword = useCallback(() => {
@@ -405,6 +649,23 @@ const Register = ({ navigation }) => {
     if (formProgress < 0.5) return 1
     if (formProgress < 0.75) return 2
     return 3
+  }
+
+  const showDebugInfo = () => {
+    Alert.alert(
+      "Debug Information",
+      `Last API Call: ${debugInfo.lastApiCall || "None"}\n\nFormData Entries: ${debugInfo.formDataEntries.length}\n\nLast Response: ${debugInfo.lastResponse ? "Available" : "None"}`,
+      [
+        { text: "Close", style: "cancel" },
+        {
+          text: "View Details",
+          onPress: () => {
+            console.log("🐛 FULL DEBUG INFO:")
+            console.log(JSON.stringify(debugInfo, null, 2))
+          },
+        },
+      ],
+    )
   }
 
   const headerScale = headerAnimation.interpolate({
@@ -444,9 +705,16 @@ const Register = ({ navigation }) => {
               },
             ]}
           >
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
+            <View style={styles.headerTop}>
+              <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <Ionicons name="arrow-back" size={24} color="#fff" />
+              </TouchableOpacity>
+
+              {/* Debug Button */}
+              <TouchableOpacity style={styles.debugButton} onPress={showDebugInfo}>
+                <Ionicons name="bug" size={20} color="#fff" />
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity onPress={pickImage} style={styles.profileImageContainer}>
               <Image
@@ -491,6 +759,40 @@ const Register = ({ navigation }) => {
               },
             ]}
           >
+            {/* Debug Info Display */}
+            <View style={styles.debugContainer}>
+              <Text style={styles.debugTitle}>🐛 Debug Info</Text>
+              <Text style={styles.debugText}>Selected User Type: {userType || "None"}</Text>
+              <Text style={styles.debugText}>Form Progress: {Math.round(formProgress * 100)}%</Text>
+              <Text style={styles.debugText}>API Base URL: {API_BASE_URL}</Text>
+              <Text style={styles.debugText}>
+                Last API Call: {debugInfo.lastApiCall ? new Date(debugInfo.lastApiCall).toLocaleTimeString() : "None"}
+              </Text>
+            </View>
+
+            {/* User Type Selection */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionHeader}>
+                <Ionicons name="people-outline" size={18} color="#22c55e" /> Choose Your Garden Role
+              </Text>
+              <Text style={styles.sectionSubtitle}>Select how you'd like to participate in our garden community</Text>
+
+              <View style={styles.userTypeGrid}>
+                {userTypes.map((type) => (
+                  <UserTypeCard
+                    key={type.type}
+                    type={type.type}
+                    icon={type.icon}
+                    title={type.title}
+                    description={type.description}
+                    color={type.color}
+                    selected={userType === type.type}
+                    onPress={() => handleUserTypeSelection(type.type)}
+                  />
+                ))}
+              </View>
+            </View>
+
             {/* Personal Information */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionHeader}>
@@ -630,7 +932,7 @@ const Register = ({ navigation }) => {
             <View style={styles.tipContainer}>
               <Ionicons name="leaf" size={16} color="#22c55e" />
               <Text style={styles.tipText}>
-                🌱 Welcome to your plant journey! Every great garden starts with a single seed.
+                🌱 Welcome to your plant journey! Every great garden starts with choosing your role in the community.
               </Text>
             </View>
 
@@ -692,10 +994,23 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
     position: "relative",
   },
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
   backButton: {
-    position: "absolute",
-    top: 50,
-    left: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  debugButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -798,6 +1113,26 @@ const styles = StyleSheet.create({
     paddingTop: 30,
     paddingBottom: 30,
   },
+  debugContainer: {
+    backgroundColor: "#f0f9ff",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: "#3b82f6",
+  },
+  debugTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1e40af",
+    marginBottom: 8,
+  },
+  debugText: {
+    fontSize: 12,
+    color: "#1e40af",
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    marginBottom: 4,
+  },
   sectionContainer: {
     marginBottom: 25,
   },
@@ -805,8 +1140,90 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 15,
+    marginBottom: 8,
     flexDirection: "row",
+    alignItems: "center",
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  userTypeGrid: {
+    gap: 15,
+  },
+  userTypeCardContainer: {
+    marginBottom: 15,
+  },
+  userTypeCard: {
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    position: "relative",
+    overflow: "hidden",
+  },
+  userTypeCardSelected: {
+    borderWidth: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  selectedGlow: {
+    position: "absolute",
+    top: -10,
+    left: -10,
+    right: -10,
+    bottom: -10,
+    borderRadius: 25,
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 1,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  userTypeIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 15,
+    alignSelf: "center",
+  },
+  userTypeTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  userTypeDescription: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  selectedBadge: {
+    position: "absolute",
+    top: 15,
+    right: 15,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
     alignItems: "center",
   },
   inputWrapper: {
@@ -934,4 +1351,4 @@ const styles = StyleSheet.create({
   },
 })
 
-export default Register
+export default RegisterDebug

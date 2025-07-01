@@ -7,9 +7,14 @@ import Toast from 'react-native-toast-message';
 import { toastConfig } from './utils/toast';
 import Login from './Pages/Auth/Login';
 import Register from './Pages/Auth/Register';
-import Home from './Pages/Home';
-import CustomDrawer from './Pages/CustomDrawer';
-
+import Home from './Pages/farmerPages/farmerHome';
+import CustomDrawer from './Pages/farmerPages/farmerCustomDrawer';
+import PlantLibrary from './Pages/PlantLibrary';
+import VendorHomepage from './Pages/vendorPages/vendorHome';
+import MapScreen from './Pages/farmerPages/weatherMap';
+import WeatherScreen from './Pages/farmerPages/weather';
+import AIChatbot from './Pages/farmerPages/aiAssistant';
+import PlantHealthScreen from './Pages/farmerPages/imageprocessing';
 const Stack = createStackNavigator();
 
 const theme = {
@@ -43,6 +48,33 @@ export default function App() {
             component={Home} 
             options={{ headerShown: false }} 
           />
+            <Stack.Screen 
+            name="VendorHome" 
+            component={VendorHomepage} 
+            options={{ headerShown: false }} 
+          />
+            <Stack.Screen 
+            name="weathermap" 
+            component={MapScreen} 
+            options={{ headerShown: false }} 
+          />
+           <Stack.Screen 
+            name="weather" 
+            component={WeatherScreen} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="AiChatBot" 
+            component={AIChatbot} a
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="imageProcessing" 
+            component={PlantHealthScreen} a
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen name="PlantLibrary" component={PlantLibrary} />
+          
         </Stack.Navigator>
       </NavigationContainer>
       <Toast 
