@@ -15,6 +15,8 @@ import MapScreen from './Pages/farmerPages/weatherMap';
 import WeatherScreen from './Pages/farmerPages/weather';
 import AIChatbot from './Pages/farmerPages/aiAssistant';
 import PlantHealthScreen from './Pages/farmerPages/imageprocessing';
+import SellVegetable from './Pages/farmerPages/plantManagement';
+import VegetableManagement from './Pages/farmerPages/managePlant';
 const Stack = createStackNavigator();
 
 const theme = {
@@ -71,6 +73,16 @@ export default function App() {
           <Stack.Screen 
             name="imageProcessing" 
             component={PlantHealthScreen} a
+            options={{ headerShown: false }} 
+          />
+           <Stack.Screen 
+            name="plantManagement" 
+            component={SellVegetable} a
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="managePlant" 
+            component={VegetableManagement} a
             options={{ headerShown: false }} 
           />
           <Stack.Screen name="PlantLibrary" component={PlantLibrary} />

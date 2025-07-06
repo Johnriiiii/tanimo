@@ -93,10 +93,10 @@ const CustomDrawer = ({ navigation, onClose }) => {
 
   // New sales-related menu items
   const salesItems = [
-    { id: "s1", title: "Sell Plants", icon: "cash-outline", route: "SellPlants" },
+    { id: "s1", title: "Sell Plants", icon: "cash-outline", route: "plantManagement" },
     { id: "s2", title: "View Inquiries/Orders", icon: "list-outline", route: "Orders" },
     { id: "s3", title: "Chat with Vendors", icon: "chatbubbles-outline", route: "VendorChat" },
-    { id: "s4", title: "Manage Vegetable Stocks", icon: "archive-outline", route: "Inventory" },
+    { id: "s4", title: "Manage Vegetable Stocks", icon: "archive-outline", route: "managePlant" },
   ]
 
   // New monitoring items
