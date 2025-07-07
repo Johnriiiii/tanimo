@@ -8,10 +8,13 @@ import {
   ScrollView, 
   Switch, 
   Alert, 
-  ActivityIndicator 
+  ActivityIndicator,
+  Image
 } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import API_BASE_URL from "../../utils/api";
 
 const SellVegetable = ({ navigation }) => {
@@ -24,7 +27,9 @@ const SellVegetable = ({ navigation }) => {
     description: '',
     isAvailable: true
   });
+  const [image, setImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
 
@@ -71,26 +76,116 @@ const SellVegetable = ({ navigation }) => {
     loadUserData();
   }, []);
 
-  const handleSellVegetable = async () => {
-    if (!validateVegetable()) return;
-
+  const pickImage = async () => {
     try {
-      setIsLoading(true);
-      await authAxios.post('/vegetable', {
-        ...newVegetable,
-        user: user._id,
-        quantity: parseInt(newVegetable.quantity),
-        price: parseFloat(newVegetable.price)
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'We need camera roll permissions to upload images');
+        return;
+      }
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.7,
       });
 
-      resetForm();
-      Alert.alert('Success', 'Vegetable listed for sale successfully');
+      if (!result.canceled) {
+        // Compress and resize the image
+        const manipResult = await manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 800 } }],
+          { compress: 0.7, format: SaveFormat.JPEG }
+        );
+        setImage(manipResult.uri);
+      }
     } catch (error) {
-      handleApiError(error, 'Failed to list vegetable for sale');
-    } finally {
-      setIsLoading(false);
+      console.error('Image picker error:', error);
+      Alert.alert('Error', 'Failed to pick image');
     }
   };
+
+  const uploadImage = async () => {
+    if (!image) return null;
+
+    try {
+      setUploading(true);
+      
+      // Create FormData object
+      const formData = new FormData();
+      const filename = image.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('image', {
+        uri: image,
+        name: filename,
+        type,
+      });
+
+      const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return response.data.imageUrl;
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('Error', 'Failed to upload image');
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+ const handleSellVegetable = async () => {
+  if (!validateVegetable()) return;
+
+  try {
+    setIsLoading(true);
+    
+    // Create FormData for the entire vegetable including image
+    const formData = new FormData();
+    
+    // Add vegetable data
+    formData.append('name', newVegetable.name);
+    formData.append('category', newVegetable.category);
+    formData.append('quantity', newVegetable.quantity);
+    formData.append('price', newVegetable.price);
+    formData.append('description', newVegetable.description);
+    formData.append('isAvailable', newVegetable.isAvailable.toString());
+    
+    // Add image if exists
+    if (image) {
+      const filename = image.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      
+      formData.append('image', {
+        uri: image,
+        name: filename,
+        type,
+      });
+    }
+
+    // Send all data in one request
+    await authAxios.post('/vegetable', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    resetForm();
+    Alert.alert('Success', 'Vegetable listed for sale successfully');
+  } catch (error) {
+    handleApiError(error, 'Failed to list vegetable for sale');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Helper functions
   const validateVegetable = () => {
@@ -111,6 +206,7 @@ const SellVegetable = ({ navigation }) => {
       description: '',
       isAvailable: true
     });
+    setImage(null);
   };
 
   const handleApiError = (error, defaultMessage) => {
@@ -147,6 +243,17 @@ const SellVegetable = ({ navigation }) => {
       
       {/* Sell Vegetable Form */}
       <View style={styles.formContainer}>
+        {/* Image Upload Section */}
+        <TouchableOpacity style={styles.imageUploadContainer} onPress={pickImage}>
+          {image ? (
+            <Image source={{ uri: image }} style={styles.imagePreview} />
+          ) : (
+            <View style={styles.imagePlaceholder}>
+              <Text style={styles.imagePlaceholderText}>+ Add Vegetable Photo</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        
         <TextInput
           style={styles.input}
           placeholder="Vegetable Name*"
@@ -199,9 +306,9 @@ const SellVegetable = ({ navigation }) => {
         <TouchableOpacity 
           style={[styles.button, styles.addButton]} 
           onPress={handleSellVegetable}
-          disabled={isLoading}
+          disabled={isLoading || uploading}
         >
-          {isLoading ? (
+          {isLoading || uploading ? (
             <ActivityIndicator color="white" />
           ) : (
             <Text style={styles.buttonText}>List Vegetable for Sale</Text>
@@ -232,6 +339,30 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 20,
     elevation: 2,
+  },
+  imageUploadContainer: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  imagePreview: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  imagePlaceholder: {
+    width: 200,
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  imagePlaceholderText: {
+    color: '#888',
+    textAlign: 'center',
   },
   input: {
     height: 40,

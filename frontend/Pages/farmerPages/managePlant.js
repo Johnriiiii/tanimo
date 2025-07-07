@@ -5,14 +5,14 @@ import {
   StyleSheet, 
   TextInput, 
   TouchableOpacity, 
-  ScrollView, 
   Switch, 
   Alert, 
   ActivityIndicator,
   FlatList,
   RefreshControl,
   Modal,
-  Pressable
+  Pressable,
+  Image
 } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -211,6 +211,21 @@ const VegetableManagement = ({ navigation }) => {
   // Render item for FlatList
   const renderVegetableItem = ({ item }) => (
     <View style={styles.vegetableCard}>
+      {/* Vegetable Image */}
+      {item.image ? (
+        <Image 
+          source={{ uri: item.image }} 
+          style={styles.vegetableImage}
+          resizeMode="cover"
+          onError={() => console.log('Failed to load image')}
+        />
+      ) : (
+        <View style={styles.imagePlaceholder}>
+          <Icon name="image" size={48} color="#ccc" />
+          <Text style={styles.placeholderText}>No Image</Text>
+        </View>
+      )}
+      
       <View style={styles.vegetableHeader}>
         <Text style={styles.vegetableName}>{item.name}</Text>
         <Text style={styles.vegetableCategory}>{item.category}</Text>
@@ -305,6 +320,15 @@ const VegetableManagement = ({ navigation }) => {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Edit Vegetable</Text>
+            
+            {/* Show current image in edit modal */}
+            {selectedVegetable?.image && (
+              <Image 
+                source={{ uri: selectedVegetable.image }} 
+                style={styles.modalImage}
+                resizeMode="cover"
+              />
+            )}
             
             <TextInput
               style={styles.input}
@@ -435,6 +459,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     elevation: 2,
   },
+  vegetableImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    marginBottom: 12,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderText: {
+    color: '#888',
+    marginTop: 8,
+  },
   vegetableHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -502,6 +545,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
     textAlign: 'center',
+  },
+  modalImage: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    marginBottom: 12,
+    alignSelf: 'center',
   },
   input: {
     height: 40,

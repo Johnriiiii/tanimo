@@ -1,100 +1,147 @@
 import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import axios from 'axios';
+import FormData from 'form-data';
+import API_BASE_URL from '../../utils/api';
 
-const PlantHealthScreen = () => {
-  const [imageUri, setImageUri] = useState(null);
-  const [results, setResults] = useState(null);
+const PlantAnalysisScreen = ({ navigation }) => {
+  const [image, setImage] = useState(null);
+  const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const selectImage = async () => {
-    setLoading(true);
+  const pickImage = async () => {
     try {
-      const response = await launchImageLibrary({
-        mediaType: 'photo',
-        quality: 1,
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission required', 'We need camera roll permissions to analyze plants');
+        return;
+      }
+
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
       });
 
-      if (!response.didCancel && response.assets?.[0]?.uri) {
-        setImageUri(response.assets[0].uri);
-        analyzePlant(response.assets[0].uri);
+      if (!result.canceled) {
+        setImage(result.assets[0].uri);
+        setAnalysis(null); // Clear previous analysis
       }
     } catch (error) {
       console.error('Image picker error:', error);
-    } finally {
-      setLoading(false);
+      Alert.alert('Error', 'Failed to select image');
     }
   };
 
-  // Mock analysis function - replace with your actual logic
-  const analyzePlant = (uri) => {
-    setTimeout(() => {
-      const mockResults = {
-        status: ['Overwatered', 'Underwatered', 'Healthy'][Math.floor(Math.random() * 3)],
-        needsFertilizer: Math.random() > 0.5,
-        readyToHarvest: Math.random() > 0.7,
-      };
-      setResults(mockResults);
-    }, 1500); // Simulate analysis delay
+  const analyzePlant = async () => {
+    if (!image) {
+      Alert.alert('Error', 'Please select an image first');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      const formData = new FormData();
+      const filename = image.split('/').pop();
+      const fileType = filename.split('.').pop();
+      
+      formData.append('image', {
+        uri: image,
+        name: filename,
+        type: `image/${fileType}`,
+      });
+
+      const response = await axios.post(`${API_BASE_URL}/plant/analyze`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      setAnalysis(response.data.analysis);
+    } catch (error) {
+      console.error('Analysis error:', error);
+      Alert.alert('Error', 'Failed to analyze plant. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Plant Health Scanner</Text>
       
-      {!imageUri ? (
-        <TouchableOpacity style={styles.uploadButton} onPress={selectImage}>
-          <Text style={styles.uploadButtonText}>Upload Plant Photo</Text>
+      <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+        {image ? (
+          <Image source={{ uri: image }} style={styles.image} />
+        ) : (
+          <Text style={styles.buttonText}>Select Plant Photo</Text>
+        )}
+      </TouchableOpacity>
+      
+      {image && !analysis && (
+        <TouchableOpacity 
+          style={styles.analyzeButton} 
+          onPress={analyzePlant}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.buttonText}>Analyze Plant</Text>
+          )}
         </TouchableOpacity>
-      ) : (
-        <Image source={{ uri: imageUri }} style={styles.image} />
       )}
-
-      {loading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4CAF50" />
-          <Text style={styles.loadingText}>Analyzing your plant...</Text>
-        </View>
-      )}
-
-      {results && (
+      
+      {analysis && (
         <View style={styles.resultsContainer}>
-          <Text style={styles.resultHeader}>Analysis Results:</Text>
+          <Text style={styles.sectionTitle}>Analysis Results</Text>
           
-          <View style={styles.resultRow}>
-            <Text style={styles.resultLabel}>Status:</Text>
-            <Text style={[
-              styles.resultValue,
-              results.status === 'Healthy' && styles.healthy,
-              results.status !== 'Healthy' && styles.warning
-            ]}>
-              {results.status}
-            </Text>
+          {/* Health Status Card */}
+          <View style={[styles.resultCard, 
+            analysis.healthStatus.status === 'Healthy' ? styles.healthyCard :
+            analysis.healthStatus.status.includes('Unhealthy') ? styles.unhealthyCard :
+            styles.moderateCard]}>
+            <Text style={styles.resultTitle}>Plant Health:</Text>
+            <Text style={styles.resultValue}>{analysis.healthStatus.status}</Text>
+            <Text style={styles.resultDetail}>Confidence: {analysis.healthStatus.confidence}</Text>
           </View>
-
-          <View style={styles.resultRow}>
-            <Text style={styles.resultLabel}>Fertilizer Needed:</Text>
-            <Text style={styles.resultValue}>
-              {results.needsFertilizer ? 'Yes' : 'No'}
-            </Text>
+          
+          {/* Harvest Status Card */}
+          <View style={[styles.resultCard, 
+            analysis.harvestStatus.status === 'Ready to Harvest' ? styles.readyCard :
+            analysis.harvestStatus.status === 'Overripe' ? styles.overripeCard :
+            styles.notReadyCard]}>
+            <Text style={styles.resultTitle}>Harvest Readiness:</Text>
+            <Text style={styles.resultValue}>{analysis.harvestStatus.status}</Text>
+            <Text style={styles.resultDetail}>{analysis.harvestStatus.recommendation}</Text>
           </View>
-
-          <View style={styles.resultRow}>
-            <Text style={styles.resultLabel}>Harvest Ready:</Text>
-            <Text style={styles.resultValue}>
-              {results.readyToHarvest ? 'Yes' : 'Not Yet'}
-            </Text>
+          
+          {/* Color Analysis */}
+          <View style={styles.colorAnalysisContainer}>
+            <Text style={styles.sectionTitle}>Color Composition</Text>
+            <View style={styles.colorBars}>
+              <View style={[styles.colorBar, styles.greenBar, { width: `${analysis.colorAnalysis.green}` }]} />
+              <View style={[styles.colorBar, styles.yellowBar, { width: `${analysis.colorAnalysis.yellow}` }]} />
+              <View style={[styles.colorBar, styles.brownBar, { width: `${analysis.colorAnalysis.brown}` }]} />
+            </View>
+            <View style={styles.colorLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.colorBox, styles.greenBox]} />
+                <Text>Green: {analysis.colorAnalysis.green}</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.colorBox, styles.yellowBox]} />
+                <Text>Yellow: {analysis.colorAnalysis.yellow}</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.colorBox, styles.brownBox]} />
+                <Text>Brown: {analysis.colorAnalysis.brown}</Text>
+              </View>
+            </View>
           </View>
-
-          <TouchableOpacity 
-            style={styles.newScanButton} 
-            onPress={() => {
-              setImageUri(null);
-              setResults(null);
-            }}
-          >
-            <Text style={styles.newScanButtonText}>Analyze Another Plant</Text>
-          </TouchableOpacity>
         </View>
       )}
     </View>
@@ -110,78 +157,144 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 30,
+    marginBottom: 20,
     textAlign: 'center',
+    color: '#2c3e50',
   },
-  uploadButton: {
-    backgroundColor: '#4CAF50',
-    padding: 15,
-    borderRadius: 10,
+  imageButton: {
+    height: 250,
+    backgroundColor: '#ecf0f1',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 20,
-  },
-  uploadButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+    borderRadius: 10,
+    marginBottom: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#bdc3c7',
   },
   image: {
     width: '100%',
-    height: 300,
-    borderRadius: 10,
-    marginVertical: 20,
+    height: '100%',
   },
-  loadingContainer: {
-    alignItems: 'center',
-    marginVertical: 20,
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#666',
-  },
-  resultsContainer: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    marginTop: 20,
-  },
-  resultHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
-  resultRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  resultLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  resultValue: {
-    fontSize: 16,
+  buttonText: {
+    color: '#3498db',
     fontWeight: 'bold',
   },
-  healthy: {
-    color: '#4CAF50',
-  },
-  warning: {
-    color: '#FF5722',
-  },
-  newScanButton: {
-    backgroundColor: '#e8f5e9',
+  analyzeButton: {
+    backgroundColor: '#2ecc71',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
-    marginTop: 20,
+    marginBottom: 20,
   },
-  newScanButtonText: {
-    color: '#4CAF50',
+  resultsContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 15,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#34495e',
+  },
+  resultCard: {
+    marginBottom: 15,
+    padding: 15,
+    borderRadius: 8,
+  },
+  healthyCard: {
+    backgroundColor: '#d5f5e3',
+    borderLeftWidth: 5,
+    borderLeftColor: '#2ecc71',
+  },
+  unhealthyCard: {
+    backgroundColor: '#fadbd8',
+    borderLeftWidth: 5,
+    borderLeftColor: '#e74c3c',
+  },
+  moderateCard: {
+    backgroundColor: '#fef9e7',
+    borderLeftWidth: 5,
+    borderLeftColor: '#f39c12',
+  },
+  readyCard: {
+    backgroundColor: '#e8f8f5',
+    borderLeftWidth: 5,
+    borderLeftColor: '#1abc9c',
+  },
+  overripeCard: {
+    backgroundColor: '#fdedec',
+    borderLeftWidth: 5,
+    borderLeftColor: '#e74c3c',
+  },
+  notReadyCard: {
+    backgroundColor: '#eaf2f8',
+    borderLeftWidth: 5,
+    borderLeftColor: '#3498db',
+  },
+  resultTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 5,
+    color: '#2c3e50',
+  },
+  resultValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  resultDetail: {
+    fontSize: 14,
+    color: '#7f8c8d',
+  },
+  colorAnalysisContainer: {
+    marginTop: 10,
+  },
+  colorBars: {
+    flexDirection: 'row',
+    height: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 10,
+  },
+  colorBar: {
+    height: '100%',
+  },
+  greenBar: {
+    backgroundColor: '#2ecc71',
+  },
+  yellowBar: {
+    backgroundColor: '#f1c40f',
+  },
+  brownBar: {
+    backgroundColor: '#a04000',
+  },
+  colorLegend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  colorBox: {
+    width: 15,
+    height: 15,
+    marginRight: 5,
+    borderRadius: 3,
+  },
+  greenBox: {
+    backgroundColor: '#2ecc71',
+  },
+  yellowBox: {
+    backgroundColor: '#f1c40f',
+  },
+  brownBox: {
+    backgroundColor: '#a04000',
   },
 });
 
-export default PlantHealthScreen;
+export default PlantAnalysisScreen;

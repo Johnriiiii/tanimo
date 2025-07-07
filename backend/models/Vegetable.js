@@ -34,6 +34,10 @@ const vegetableSchema = new mongoose.Schema({
     ref: 'User',
     required: [true, 'Vegetable must belong to a gardener']
   },
+  image: {  // Single image field instead of array
+    type: String,
+    default: ''
+  },
   createdAt: {
     type: Date,
     default: Date.now
