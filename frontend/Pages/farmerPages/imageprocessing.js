@@ -29,6 +29,8 @@ const PlantAnalysisScreen = ({ navigation }) => {
         setImage(result.assets[0].uri);
         setAnalysis(null); // Clear previous analysis
       }
+
+      console.log(result);
     } catch (error) {
       console.error('Image picker error:', error);
       Alert.alert('Error', 'Failed to select image');
@@ -36,38 +38,45 @@ const PlantAnalysisScreen = ({ navigation }) => {
   };
 
   const analyzePlant = async () => {
-    if (!image) {
-      Alert.alert('Error', 'Please select an image first');
-      return;
-    }
+  if (!image) {
+    Alert.alert('Error', 'Please select an image first');
+    return;
+  }
 
-    try {
-      setLoading(true);
-      
-      const formData = new FormData();
-      const filename = image.split('/').pop();
-      const fileType = filename.split('.').pop();
-      
-      formData.append('image', {
-        uri: image,
-        name: filename,
-        type: `image/${fileType}`,
-      });
+  try {
+    setLoading(true);
 
-      const response = await axios.post(`${API_BASE_URL}/plant/analyze`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+    const formData = new FormData();
+    const filename = image.split('/').pop();
+    const fileType = filename.split('.').pop();
 
-      setAnalysis(response.data.analysis);
-    } catch (error) {
-      console.error('Analysis error:', error);
-      Alert.alert('Error', 'Failed to analyze plant. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    // For iOS/Android compatibility
+    const imageFile = {
+      uri: image,
+      name: filename,
+      type: `image/${fileType}`,
+    };
+
+    formData.append('image', imageFile);
+
+    const response = await axios.post(`${API_BASE_URL}/openai/`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    console.log('Server Response:', response.data);
+    
+    // Optionally update state with result
+    // setAnalysis(response.data.analysis);
+  } catch (error) {
+    console.error('Analysis error:', error.response || error.message);
+    Alert.alert('Error', 'Failed to analyze plant. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <View style={styles.container}>
