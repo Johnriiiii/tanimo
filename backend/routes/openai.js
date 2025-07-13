@@ -1,51 +1,74 @@
 const express = require("express");
-const authenticate = require("../middleware/auth");
 const router = express.Router();
 const upload = require("../config/multer");
 const axios = require("axios");
+const FormData = require("form-data");
+const cloudinary = require("../config/cloudinary");
 
-// Create 
-router.post("/", upload.single("image"), async(req,res) => {
-    try{
-        const base64Image = req.file.buffer.toString("base64");
-        const mimeType = req.file.mimetype; 
+router.post("/", upload.single("image"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file uploaded." });
+    }
 
-        const imageDataUrl = `data:${mimeType};base64,${base64Image}`;
-        const response = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "What's in this image?" },
-              {
-                type: "image_url",
-                image_url: {
-                  url: imageDataUrl,
-                  detail: "high",
-                },
-              },
-            ],
-          },
-        ],
-        max_tokens: 500,
-      },
+    // ✅ Upload image to Cloudinary
+    const streamUpload = (buffer) => {
+      return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "uploads" },
+          (error, result) => {
+            if (result) resolve(result);
+            else reject(error);
+          }
+        );
+        stream.end(buffer);
+      });
+    };
+
+    const result = await streamUpload(req.file.buffer);
+    console.log("✅ Cloudinary URL:", result.secure_url);
+
+    // ✅ Download image as buffer again (optional but useful for form-data compatibility)
+    const imageBuffer = (
+      await axios.get(result.secure_url, { responseType: "arraybuffer" })
+    ).data;
+
+    // ✅ Create form-data to send to Hugging Face API
+    const form = new FormData();
+    form.append("file", Buffer.from(imageBuffer), {
+      filename: req.file.originalname,
+      contentType: req.file.mimetype,
+    });
+
+    // ✅ Call the Hugging Face API
+    const response = await axios.post(
+      "https://premo625-plant-disease-api.hf.space/predict",
+      form,
       {
         headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
+          ...form.getHeaders(),
         },
       }
     );
-          
-    res.json({ result: response.data.choices[0].message.content });
 
-    }catch(err) {
-        console.log(err);
-        res.status(500).json({ error: "Failed to analyze image." });    
+    res.json({ result: response.data });
+  } catch (err) {
+    console.error("❌ Error:", err);
+
+    if (err.response) {
+      console.error("📑 Hugging Face Response Error:", err.response.data);
+      return res.status(err.response.status).json({
+        message: "Hugging Face API error.",
+        status: err.response.status,
+        data: err.response.data,
+      });
+    } else {
+      return res.status(500).json({
+        message: "Something went wrong.",
+        error: err.message,
+      });
     }
+  }
 });
 
 module.exports = router;
