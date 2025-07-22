@@ -20,8 +20,7 @@ const PlantAnalysisScreen = ({ navigation }) => {
 
   const pickImage = async () => {
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
           "Permission required",
@@ -39,7 +38,7 @@ const PlantAnalysisScreen = ({ navigation }) => {
 
       if (!result.canceled) {
         setImage(result.assets[0].uri);
-        setAnalysis(null); // Clear previous analysis
+        setAnalysis(null);
       }
 
       console.log(result);
@@ -79,11 +78,21 @@ const PlantAnalysisScreen = ({ navigation }) => {
       console.log("Server Response:", response.data);
 
       const prediction = response.data.result.prediction;
+      const confidencePercent = prediction.confidence * 100;
+
+      let conditionLabel = "";
+      if (confidencePercent <= 70) {
+        conditionLabel = "Unhealthy";
+      } else if (confidencePercent <= 90) {
+        conditionLabel = "Mild Condition";
+      } else {
+        conditionLabel = "Healthy";
+      }
 
       setAnalysis({
         className: prediction.class_name,
-        confidence: (prediction.confidence * 100).toFixed(2) + "%",
-        isHealthy: prediction.is_healthy,
+        confidence: confidencePercent.toFixed(2) + "%",
+        condition: conditionLabel,
       });
     } catch (error) {
       console.error("Analysis error:", error.response || error.message);
@@ -91,6 +100,11 @@ const PlantAnalysisScreen = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleScanAgain = () => {
+    setImage(null);
+    setAnalysis(null);
   };
 
   return (
@@ -119,31 +133,51 @@ const PlantAnalysisScreen = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-      {analysis && (
-        <View style={styles.resultsContainer}>
-          <Text style={styles.sectionTitle}>Analysis Result</Text>
+{analysis && (
+  <View style={styles.resultsContainer}>
+    <Text style={styles.sectionTitle}>🌿 Analysis Result</Text>
 
-          <View
-            style={[
-              styles.resultCard,
-              analysis.isHealthy ? styles.healthyCard : styles.unhealthyCard,
-            ]}
-          >
-            <Text style={styles.resultTitle}>Plant Condition:</Text>
-            <Text style={styles.resultValue}>
-              {analysis.isHealthy ? "Healthy" : "Unhealthy"}
-            </Text>
+    <View
+      style={[
+        styles.resultCard,
+        analysis.condition === "Healthy"
+          ? styles.healthyCard
+          : analysis.condition === "Mild Condition"
+          ? styles.mildCard
+          : styles.unhealthyCard,
+      ]}
+    >
+      <Text style={styles.resultTitle}>🌱 Plant Condition</Text>
+      <Text style={styles.resultValue}>
+        {analysis.condition === "Healthy"
+          ? "🟢 Healthy"
+          : analysis.condition === "Mild Condition"
+          ? "🟡 Mild Condition"
+          : "🔴 Unhealthy"}
+      </Text>
 
-            <Text style={styles.resultDetail}>
-              Detected: {analysis.className}
-            </Text>
+      <Text style={styles.resultDetail}>🧪 Detected: {analysis.className}</Text>
+      <Text style={styles.resultDetail}>📊 Confidence: {analysis.confidence}</Text>
+      <Text style={styles.resultDetail}>🕒 Scanned: {new Date().toLocaleString()}</Text>
 
-            <Text style={styles.resultDetail}>
-              Confidence: {analysis.confidence}
-            </Text>
-          </View>
-        </View>
-      )}
+      <View style={styles.suggestionBox}>
+        <Text style={styles.suggestionTitle}>📝 Suggestion:</Text>
+        <Text style={styles.suggestionText}>
+          {analysis.condition === "Healthy"
+            ? "Your plant looks healthy! Keep providing consistent care. 🌞"
+            : analysis.condition === "Mild Condition"
+            ? "Monitor the plant and check soil, light, and water conditions. 📋"
+            : "Consider pruning, changing soil, or checking for pests or diseases. 🛠️"}
+        </Text>
+      </View>
+    </View>
+
+    <TouchableOpacity style={styles.scanAgainButton} onPress={handleScanAgain}>
+      <Text style={styles.scanAgainText}>🔄 Scan Again</Text>
+    </TouchableOpacity>
+  </View>
+)}
+
     </View>
   );
 };
@@ -210,6 +244,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 5,
     borderLeftColor: "#2ecc71",
   },
+  mildCard: {
+    backgroundColor: "#fcf3cf",
+    borderLeftWidth: 5,
+    borderLeftColor: "#f1c40f",
+  },
   unhealthyCard: {
     backgroundColor: "#fadbd8",
     borderLeftWidth: 5,
@@ -229,6 +268,17 @@ const styles = StyleSheet.create({
   resultDetail: {
     fontSize: 14,
     color: "#7f8c8d",
+  },
+  scanAgainButton: {
+    backgroundColor: "#2980b9",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
+  },
+  scanAgainText: {
+    color: "white",
+    fontWeight: "bold",
   },
 });
 

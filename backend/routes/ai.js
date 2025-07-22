@@ -1,7 +1,8 @@
+
 const express = require('express');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const router = express.Router();
-const ChatHistory = require('../models/chathistory');
+const ChatHistory = require('../models/ChatHistory');
 const Conversation = require('../models/Conversation');
 const authenticate = require('../middleware/auth');
 

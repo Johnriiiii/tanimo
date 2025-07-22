@@ -33,7 +33,7 @@ const VendorCustomDrawer = ({ navigation, onClose }) => {
 
   const bottomItems = [
     { id: '7', title: 'Settings', icon: 'settings-outline', route: 'VendorSettings' },
-    { id: '8', title: 'Help & Support', icon: 'help-circle-outline', route: 'VendorSupport' },
+    { id: '8', title: 'AboutUs', icon: 'help-circle-outline', route: 'VendorSupport' },
   ];
 
   useEffect(() => {

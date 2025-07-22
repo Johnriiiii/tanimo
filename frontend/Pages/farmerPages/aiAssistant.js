@@ -13,20 +13,15 @@ import API_BASE_URL from '../../utils/api';
 
 const { width, height } = Dimensions.get('window');
 
-// Plant recommendation questions
-const PLANT_RECOMMENDATIONS = [
+const RECOMMENDED_QUESTIONS = [
   "How often should I water my snake plant?",
-  "What are the best indoor plants for low light?",
-  "How do I propagate a pothos plant?",
-  "What's causing brown spots on my plant leaves?",
-  "Which plants are pet-friendly?",
-  "How to care for a fiddle leaf fig?",
-  "What are the best plants for air purification?",
-  "How to revive a dying plant?"
+  "What's the best fertilizer for indoor plants?",
+  "Why are my plant's leaves turning yellow?",
+  "How can I get rid of aphids naturally?",
+  "What are the best low-light plants for my office?"
 ];
 
 const AIChatbot = ({ navigation, route }) => {
-  // State management
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,9 +29,7 @@ const AIChatbot = ({ navigation, route }) => {
   const [currentConversation, setCurrentConversation] = useState(null);
   const [showConversations, setShowConversations] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showRecommendations, setShowRecommendations] = useState(false);
-  
-  // Rename functionality state
+  const [showRecommendations, setShowRecommendations] = useState(true);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameText, setRenameText] = useState('');
   const [conversationToRename, setConversationToRename] = useState(null);
@@ -44,7 +37,6 @@ const AIChatbot = ({ navigation, route }) => {
   
   const flatListRef = useRef(null);
 
-  // Load initial data
   useEffect(() => {
     const initializeChat = async () => {
       try {
@@ -54,14 +46,12 @@ const AIChatbot = ({ navigation, route }) => {
           return;
         }
 
-        // Load conversations
         const convResponse = await fetch(`${API_BASE_URL}/ai/conversations`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const convData = await convResponse.json();
         setConversations(convData);
 
-        // Handle conversation from params or create new
         if (route.params?.conversationId) {
           const existingConv = convData.find(c => c._id === route.params.conversationId);
           if (existingConv) {
@@ -83,7 +73,6 @@ const AIChatbot = ({ navigation, route }) => {
     initializeChat();
   }, []);
 
-  // Load messages for a conversation
   const loadMessages = async (conversationId) => {
     try {
       setIsLoading(true);
@@ -100,6 +89,7 @@ const AIChatbot = ({ navigation, route }) => {
       
       setCurrentConversation(conv);
       setMessages(history.length > 0 ? formatMessages(history) : [getWelcomeMessage()]);
+      setShowRecommendations(history.length === 0);
     } catch (error) {
       console.error('Failed to load messages:', error);
       showToast('error', 'Error', 'Failed to load messages');
@@ -108,7 +98,6 @@ const AIChatbot = ({ navigation, route }) => {
     }
   };
 
-  // Format messages for display
   const formatMessages = (history) => {
     return history.map(msg => ({
       id: msg._id || Math.random().toString(),
@@ -118,15 +107,13 @@ const AIChatbot = ({ navigation, route }) => {
     }));
   };
 
-  // Welcome message for new chats
   const getWelcomeMessage = () => ({
     id: 'welcome',
-    text: "Hello! I'm Tanimo, your plant care AI Assistant. How can I help with your plants today?",
+    text: "🌿 Hello! I'm Tanimo, your plant care assistant. How can I help with your plants today?",
     sender: 'bot',
     timestamp: new Date()
   });
 
-  // Create a new conversation
   const createNewConversation = async () => {
     try {
       setIsLoading(true);
@@ -146,6 +133,7 @@ const AIChatbot = ({ navigation, route }) => {
       setCurrentConversation(newConv);
       setMessages([getWelcomeMessage()]);
       setShowConversations(false);
+      setShowRecommendations(true);
     } catch (error) {
       console.error('Error creating conversation:', error);
       showToast('error', 'Error', 'Failed to create new conversation');
@@ -154,7 +142,11 @@ const AIChatbot = ({ navigation, route }) => {
     }
   };
 
-  // Rename conversation functionality
+  const handleRecommendedQuestion = (question) => {
+    setInput(question);
+    setShowRecommendations(false);
+  };
+
   const renameConversation = async (conversationId, newTitle) => {
     try {
       setIsRenaming(true);
@@ -172,14 +164,12 @@ const AIChatbot = ({ navigation, route }) => {
       
       const updatedConv = await response.json();
       
-      // Update conversations list
       setConversations(prev => 
         prev.map(conv => 
           conv._id === conversationId ? updatedConv : conv
         )
       );
       
-      // Update current conversation if it's the one being renamed
       if (currentConversation?._id === conversationId) {
         setCurrentConversation(updatedConv);
       }
@@ -193,14 +183,12 @@ const AIChatbot = ({ navigation, route }) => {
     }
   };
 
-  // Handle rename modal
   const handleRename = (conversation) => {
     setConversationToRename(conversation);
     setRenameText(conversation.title);
     setShowRenameModal(true);
   };
 
-  // Confirm rename
   const confirmRename = async () => {
     if (!renameText.trim() || !conversationToRename) return;
     
@@ -210,7 +198,6 @@ const AIChatbot = ({ navigation, route }) => {
     setRenameText('');
   };
 
-  // Delete a conversation
   const deleteConversation = async (conversationId) => {
     Alert.alert(
       'Delete Conversation',
@@ -253,7 +240,6 @@ const AIChatbot = ({ navigation, route }) => {
     );
   };
 
-  // Send a message
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     
@@ -267,8 +253,8 @@ const AIChatbot = ({ navigation, route }) => {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
-    Keyboard.dismiss();
     setShowRecommendations(false);
+    Keyboard.dismiss();
     
     try {
       const token = await AsyncStorage.getItem('userToken');
@@ -296,7 +282,6 @@ const AIChatbot = ({ navigation, route }) => {
       
       setMessages(prev => [...prev, botMessage]);
       
-      // Refresh conversations if new one was created
       if (data.conversationId && (!currentConversation || currentConversation._id !== data.conversationId)) {
         const convResponse = await fetch(`${API_BASE_URL}/ai/conversations`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -321,7 +306,6 @@ const AIChatbot = ({ navigation, route }) => {
     }
   };
 
-  // Render a single message
   const renderMessage = ({ item }) => (
     <View 
       style={[
@@ -332,13 +316,13 @@ const AIChatbot = ({ navigation, route }) => {
       {item.sender === 'bot' && (
         <View style={styles.avatarContainer}>
           <Image 
-            source={require('../../assets/chatbotProfile.png')}
+            source={require('../../assets/samplelogo.png')}
             style={styles.avatar}
           />
         </View>
       )}
       <LinearGradient
-        colors={item.sender === 'user' ? ['#2E7D32', '#4CAF50'] : ['#E8F5E9', '#C8E6C9']}
+        colors={item.sender === 'user' ? ['#4CAF50', '#81C784'] : ['#F1F8E9', '#DCEDC8']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
@@ -362,7 +346,16 @@ const AIChatbot = ({ navigation, route }) => {
     </View>
   );
 
-  // Render a conversation item in the list
+  const renderRecommendedQuestion = (question) => (
+    <TouchableOpacity
+      key={question}
+      style={styles.recommendedQuestion}
+      onPress={() => handleRecommendedQuestion(question)}
+    >
+      <Text style={styles.recommendedQuestionText}>{question}</Text>
+    </TouchableOpacity>
+  );
+
   const renderConversationItem = ({ item }) => (
     <TouchableOpacity 
       style={[
@@ -375,7 +368,7 @@ const AIChatbot = ({ navigation, route }) => {
       }}
     >
       <LinearGradient
-        colors={currentConversation?._id === item._id ? ['#2E7D32', '#4CAF50'] : ['#E8F5E9', '#C8E6C9']}
+        colors={currentConversation?._id === item._id ? ['#4CAF50', '#2E7D32'] : ['#F1F8E9', '#DCEDC8']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.convGradient}
@@ -401,36 +394,34 @@ const AIChatbot = ({ navigation, route }) => {
         </View>
         
         <View style={styles.convActions}>
-          {/* Rename Button */}
           <TouchableOpacity 
             style={styles.renameConvBtn}
             onPress={() => handleRename(item)}
             disabled={isRenaming}
           >
             {isRenaming && conversationToRename?._id === item._id ? (
-              <ActivityIndicator size="small" color={currentConversation?._id === item._id ? "#E8F5E9" : "#81C784"} />
+              <ActivityIndicator size="small" color={currentConversation?._id === item._id ? "#F1F8E9" : "#81C784"} />
             ) : (
               <Ionicons 
                 name="pencil-outline" 
                 size={18} 
-                color={currentConversation?._id === item._id ? "#E8F5E9" : "#2E7D32"} 
+                color={currentConversation?._id === item._id ? "#F1F8E9" : "#81C784"} 
               />
             )}
           </TouchableOpacity>
           
-          {/* Delete Button */}
           <TouchableOpacity 
             style={styles.deleteConvBtn}
             onPress={() => deleteConversation(item._id)}
             disabled={isDeleting}
           >
             {isDeleting && currentConversation?._id === item._id ? (
-              <ActivityIndicator size="small" color={currentConversation?._id === item._id ? "#E8F5E9" : "#ff4444"} />
+              <ActivityIndicator size="small" color={currentConversation?._id === item._id ? "#F1F8E9" : "#ff4444"} />
             ) : (
               <Ionicons 
                 name="trash-outline" 
                 size={18} 
-                color={currentConversation?._id === item._id ? "#E8F5E9" : "#ff4444"} 
+                color={currentConversation?._id === item._id ? "#F1F8E9" : "#ff4444"} 
               />
             )}
           </TouchableOpacity>
@@ -441,15 +432,21 @@ const AIChatbot = ({ navigation, route }) => {
 
   return (
     <LinearGradient
-      colors={['#E8F5E9', '#C8E6C9']}
+      colors={['#F1F8E9', '#DCEDC8']}
       style={styles.gradientContainer}
     >
-      {/* Decorative Leaf Elements */}
-      <View style={styles.decorativeLeaf1} />
-      <View style={styles.decorativeLeaf2} />
+      <Image 
+        source={require('../../assets/samplelogo.png')}
+        style={styles.decorativePlant1}
+        resizeMode="contain"
+      />
+      <Image 
+        source={require('../../assets/samplelogo.png')}
+        style={styles.decorativePlant2}
+        resizeMode="contain"
+      />
 
       <SafeAreaView style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity 
             onPress={() => navigation.goBack()}
@@ -463,15 +460,19 @@ const AIChatbot = ({ navigation, route }) => {
             onPress={() => setShowConversations(true)}
           >
             <LinearGradient
-              colors={['#2E7D32', '#4CAF50']}
+              colors={['#4CAF50', '#2E7D32']}
               style={styles.convHeaderGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
+              <Image 
+                source={require('../../assets/samplelogo.png')}
+                style={styles.headerLogo}
+              />
               <Text style={styles.headerTitle} numberOfLines={1}>
-                {currentConversation?.title || 'Tanimo AI'}
+                {currentConversation?.title || 'New Chat'}
               </Text>
-              <Ionicons name="chevron-down" size={16} color="#E8F5E9" />
+              <Ionicons name="chevron-down" size={16} color="#F1F8E9" />
             </LinearGradient>
           </TouchableOpacity>
           
@@ -488,7 +489,6 @@ const AIChatbot = ({ navigation, route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Messages List */}
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -497,83 +497,49 @@ const AIChatbot = ({ navigation, route }) => {
           contentContainerStyle={styles.messagesContainer}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          ListHeaderComponent={
-            <View style={styles.brandingContainer}>
-              <Image 
-                source={require('../../assets/samplelogo.png')}
-                style={styles.brandingIcon}
-              />
-              <Text style={styles.brandingTitle}>Tanimo AI Assistant</Text>
-              <Text style={styles.brandingSubtitle}>Your plant care companion</Text>
-            </View>
-          }
           ListFooterComponent={
-            isLoading ? (
-              <View style={[styles.messageContainer, styles.botContainer]}>
-                <View style={styles.avatarContainer}>
-                  <Image 
-                    source={require('../../assets/chatbotProfile.png')}
-                    style={styles.avatar}
-                  />
-                </View>
-                <LinearGradient
-                  colors={['#E8F5E9', '#C8E6C9']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[styles.messageBubble, styles.botBubble]}
-                >
-                  <View style={styles.typingIndicator}>
-                    <View style={styles.typingDot} />
-                    <View style={styles.typingDot} />
-                    <View style={styles.typingDot} />
+            <>
+              {isLoading && (
+                <View style={[styles.messageContainer, styles.botContainer]}>
+                  <View style={styles.avatarContainer}>
+                    <Image 
+                      source={require('../../assets/samplelogo.png')}
+                      style={styles.avatar}
+                    />
                   </View>
-                </LinearGradient>
-              </View>
-            ) : null
+                  <LinearGradient
+                    colors={['#F1F8E9', '#DCEDC8']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.messageBubble, styles.botBubble]}
+                  >
+                    <View style={styles.typingIndicator}>
+                      <View style={styles.typingDot} />
+                      <View style={styles.typingDot} />
+                      <View style={styles.typingDot} />
+                    </View>
+                  </LinearGradient>
+                </View>
+              )}
+              
+              {showRecommendations && messages.length === 1 && (
+                <View style={styles.recommendationsContainer}>
+                  <Text style={styles.recommendationsTitle}>Try asking me:</Text>
+                  <View style={styles.recommendationsGrid}>
+                    {RECOMMENDED_QUESTIONS.map(renderRecommendedQuestion)}
+                  </View>
+                </View>
+              )}
+            </>
           }
         />
 
-        {/* Plant Recommendations */}
-        {showRecommendations && (
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.recommendationsContainer}
-            contentContainerStyle={styles.recommendationsContent}
-          >
-            {PLANT_RECOMMENDATIONS.map((question, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.recommendationPill}
-                onPress={() => {
-                  setInput(question);
-                  setShowRecommendations(false);
-                }}
-              >
-                <Text style={styles.recommendationText}>{question}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
-
-        {/* Input Area */}
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
           style={styles.inputContainer}
         >
           <View style={styles.inputWrapper}>
-            <TouchableOpacity 
-              style={styles.recommendationButton}
-              onPress={() => setShowRecommendations(!showRecommendations)}
-            >
-              <Ionicons 
-                name="leaf-outline" 
-                size={24} 
-                color="#2E7D32" 
-              />
-            </TouchableOpacity>
-            
             <TextInput
               style={styles.input}
               value={input}
@@ -583,25 +549,24 @@ const AIChatbot = ({ navigation, route }) => {
               multiline
               editable={!isLoading}
             />
-            
             <TouchableOpacity 
               style={styles.sendButton} 
               onPress={handleSend}
               disabled={!input.trim() || isLoading}
             >
               <LinearGradient
-                colors={input.trim() ? ['#2E7D32', '#4CAF50'] : ['#E8F5E9', '#E8F5E9']}
+                colors={input.trim() ? ['#4CAF50', '#2E7D32'] : ['#DCEDC8', '#DCEDC8']}
                 style={styles.sendButtonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
                 {isLoading ? (
-                  <ActivityIndicator size="small" color="#E8F5E9" />
+                  <ActivityIndicator size="small" color="#F1F8E9" />
                 ) : (
                   <Ionicons 
                     name="send" 
                     size={20} 
-                    color={input.trim() ? '#E8F5E9' : '#81C784'} 
+                    color={input.trim() ? '#F1F8E9' : '#81C784'} 
                   />
                 )}
               </LinearGradient>
@@ -609,7 +574,6 @@ const AIChatbot = ({ navigation, route }) => {
           </View>
         </KeyboardAvoidingView>
 
-        {/* Conversations Modal */}
         <Modal
           visible={showConversations}
           animationType="slide"
@@ -617,7 +581,7 @@ const AIChatbot = ({ navigation, route }) => {
           onRequestClose={() => setShowConversations(false)}
         >
           <LinearGradient
-            colors={['#E8F5E9', '#C8E6C9']}
+            colors={['#F1F8E9', '#DCEDC8']}
             style={styles.gradientContainer}
           >
             <SafeAreaView style={styles.modalContainer}>
@@ -652,12 +616,12 @@ const AIChatbot = ({ navigation, route }) => {
                 disabled={isLoading}
               >
                 <LinearGradient
-                  colors={['#2E7D32', '#4CAF50']}
+                  colors={['#4CAF50', '#2E7D32']}
                   style={styles.newConvGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <Ionicons name="add" size={20} color="#E8F5E9" />
+                  <Ionicons name="add" size={20} color="#F1F8E9" />
                   <Text style={styles.newConvText}>New Conversation</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -665,7 +629,6 @@ const AIChatbot = ({ navigation, route }) => {
           </LinearGradient>
         </Modal>
 
-        {/* Rename Modal */}
         <Modal
           visible={showRenameModal}
           animationType="fade"
@@ -675,7 +638,7 @@ const AIChatbot = ({ navigation, route }) => {
           <View style={styles.renameModalOverlay}>
             <View style={styles.renameModalContainer}>
               <LinearGradient
-                colors={['#E8F5E9', '#C8E6C9']}
+                colors={['#F1F8E9', '#DCEDC8']}
                 style={styles.renameModalGradient}
               >
                 <Text style={styles.renameModalTitle}>Rename Conversation</Text>
@@ -705,11 +668,11 @@ const AIChatbot = ({ navigation, route }) => {
                     disabled={!renameText.trim() || isRenaming}
                   >
                     <LinearGradient
-                      colors={renameText.trim() ? ['#2E7D32', '#4CAF50'] : ['#E8F5E9', '#E8F5E9']}
+                      colors={renameText.trim() ? ['#4CAF50', '#2E7D32'] : ['#DCEDC8', '#DCEDC8']}
                       style={styles.renameConfirmGradient}
                     >
                       {isRenaming ? (
-                        <ActivityIndicator size="small" color="#E8F5E9" />
+                        <ActivityIndicator size="small" color="#F1F8E9" />
                       ) : (
                         <Text style={[
                           styles.renameConfirmText,
@@ -738,48 +701,21 @@ const styles = StyleSheet.create({
     flex: 1,
     position: 'relative',
   },
-  // Decorative Elements
-  decorativeLeaf1: {
+  decorativePlant1: {
     position: 'absolute',
-    top: -50,
-    right: -50,
+    top: -20,
+    right: -20,
     width: 150,
     height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-    transform: [{ rotate: '45deg' }],
+    opacity: 0.1,
   },
-  decorativeLeaf2: {
+  decorativePlant2: {
     position: 'absolute',
     bottom: 100,
     left: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(46, 125, 50, 0.08)',
-    transform: [{ rotate: '-15deg' }],
-  },
-  // Branding
-  brandingContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 15,
-    marginBottom: 10,
-  },
-  brandingIcon: {
-    width: 60,
-    height: 60,
-    marginBottom: 10,
-  },
-  brandingTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#2E7D32',
-    marginBottom: 5,
-  },
-  brandingSubtitle: {
-    fontSize: 14,
-    color: '#81C784',
+    width: 120,
+    height: 120,
+    opacity: 0.08,
   },
   header: {
     flexDirection: 'row',
@@ -790,6 +726,11 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 8,
+  },
+  headerLogo: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
   },
   convHeader: {
     flex: 1,
@@ -815,7 +756,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginRight: 8,
-    color: '#E8F5E9',
+    color: '#F1F8E9',
   },
   messagesContainer: {
     padding: 15,
@@ -855,11 +796,9 @@ const styles = StyleSheet.create({
   },
   botBubble: {
     borderTopLeftRadius: 4,
-    backgroundColor: '#E8F5E9',
   },
   userBubble: {
     borderTopRightRadius: 4,
-    backgroundColor: '#4CAF50',
   },
   messageText: {
     fontSize: 16,
@@ -869,7 +808,7 @@ const styles = StyleSheet.create({
     color: '#2E7D32',
   },
   userText: {
-    color: '#E8F5E9',
+    color: '#F1F8E9',
   },
   timestamp: {
     fontSize: 10,
@@ -880,34 +819,8 @@ const styles = StyleSheet.create({
     color: '#81C784',
   },
   userTimestamp: {
-    color: 'rgba(232, 245, 233, 0.7)',
+    color: 'rgba(241, 248, 233, 0.7)',
   },
-  // Recommendations
-  recommendationsContainer: {
-    maxHeight: 120,
-    paddingHorizontal: 15,
-    marginBottom: 10,
-  },
-  recommendationsContent: {
-    paddingBottom: 10,
-  },
-  recommendationPill: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#C8E6C9',
-  },
-  recommendationText: {
-    color: '#2E7D32',
-    fontSize: 14,
-  },
-  recommendationButton: {
-    marginRight: 10,
-  },
-  // Input Area
   inputContainer: {
     padding: 15,
     paddingBottom: Platform.OS === 'ios' ? 25 : 15,
@@ -916,12 +829,12 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#F1F8E9',
     borderRadius: 25,
     paddingVertical: 5,
     paddingHorizontal: 15,
     borderWidth: 2,
-    borderColor: '#C8E6C9',
+    borderColor: '#DCEDC8',
     shadowColor: '#2E7D32',
     shadowOffset: {
       width: 0,
@@ -963,7 +876,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#81C784',
     marginHorizontal: 2,
   },
-  // Modal styles
+  recommendationsContainer: {
+    marginTop: 20,
+    paddingHorizontal: 10,
+  },
+  recommendationsTitle: {
+    fontSize: 16,
+    color: '#689F38',
+    marginBottom: 15,
+    fontWeight: '600',
+  },
+  recommendationsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  recommendedQuestion: {
+    width: '48%',
+    backgroundColor: '#F1F8E9',
+    borderColor: '#C8E6C9',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  recommendedQuestionText: {
+    color: '#2E7D32',
+    fontSize: 14,
+  },
   modalContainer: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -1026,7 +966,7 @@ const styles = StyleSheet.create({
     color: '#81C784',
   },
   selectedConvText: {
-    color: '#E8F5E9',
+    color: '#F1F8E9',
   },
   convActions: {
     flexDirection: 'row',
@@ -1074,10 +1014,9 @@ const styles = StyleSheet.create({
   newConvText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#E8F5E9',
+    color: '#F1F8E9',
     marginLeft: 10,
   },
-  // Rename Modal Styles
   renameModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(46, 125, 50, 0.5)',
@@ -1108,9 +1047,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   renameInput: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#F1F8E9',
     borderWidth: 1,
-    borderColor: '#C8E6C9',
+    borderColor: '#DCEDC8',
     borderRadius: 12,
     padding: 15,
     fontSize: 16,
@@ -1125,11 +1064,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
     padding: 15,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#F1F8E9',
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#C8E6C9',
+    borderColor: '#DCEDC8',
   },
   renameCancelText: {
     fontSize: 16,
@@ -1149,10 +1088,10 @@ const styles = StyleSheet.create({
   renameConfirmText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#F8F3D9',
+    color: '#F1F8E9',
   },
   renameConfirmTextDisabled: {
-    color: '#B9B28A',
+    color: '#81C784',
   },
 });
 
