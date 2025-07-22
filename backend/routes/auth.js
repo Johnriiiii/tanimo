@@ -171,7 +171,6 @@ router.post("/login", async (req, res) => {
 
     const { email, password } = req.body
 
-    // Validate request body
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -179,10 +178,7 @@ router.post("/login", async (req, res) => {
       })
     }
 
-    // Find user by email (case insensitive)
-    const user = await User.findOne({
-      email: email.toLowerCase().trim(),
-    })
+    const user = await User.findOne({ email: email.toLowerCase().trim() })
 
     if (!user) {
       console.log("User not found for email:", email)
@@ -192,13 +188,15 @@ router.post("/login", async (req, res) => {
       })
     }
 
-    console.log("User found:", {
-      id: user._id,
-      email: user.email,
-      userType: user.userType,
-    })
+    // 🚫 Check if user is deactivated
+    if (user.status === "deactivated") {
+      console.log("User is deactivated:", email)
+      return res.status(403).json({
+        success: false,
+        message: "Your account is deactivated. Please contact support.",
+      })
+    }
 
-    // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password)
     if (!isPasswordValid) {
       console.log("Invalid password for user:", email)
@@ -208,7 +206,6 @@ router.post("/login", async (req, res) => {
       })
     }
 
-    // Create token
     const token = jwt.sign(
       {
         id: user._id,
@@ -246,7 +243,6 @@ router.post("/login", async (req, res) => {
     })
   }
 })
-
 // Add a test endpoint to verify userType handling
 router.get("/test-user-types", async (req, res) => {
   try {

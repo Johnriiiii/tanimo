@@ -25,10 +25,12 @@ app.get("/", (req, res) => {
 });
 
 app.use("/auth", require("./routes/auth")); // Authentication routes
-
 app.use("/user", require("./routes/user")); // User routes
 app.use("/ai", require("./routes/ai")); // Ai
 app.use("/vegetable", require("./routes/vegetableManagement")); // vegetable management
 app.use("/plant", require("./routes/plantScan"));
 app.use("/openai", require("./routes/openai"));
+app.use("/user", require("./routes/fetchGardener")); 
+
 app.listen(5000, () => console.log("Server is running"));
+
