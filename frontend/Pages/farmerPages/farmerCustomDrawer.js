@@ -85,8 +85,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
   // Original menu items
   const menuItems = [
     { id: "1", title: "Garden Home", icon: "home-outline", route: "Home" },
-    { id: "2", title: "Ai ChatBot", icon: "hardware-chip-outline", route: "AiChatBot" }
-
+    { id: "2", title: "AI Assistant", icon: "hardware-chip-outline", route: "AiChatBot" }
 
 
   ]
@@ -95,7 +94,6 @@ const CustomDrawer = ({ navigation, onClose }) => {
   const salesItems = [
     { id: "s1", title: "Sell Plants", icon: "cash-outline", route: "plantManagement" },
     { id: "s2", title: "View Inquiries/Orders", icon: "list-outline", route: "Orders" },
-    { id: "s3", title: "Chat with Vendors", icon: "chatbubbles-outline", route: "VendorChat" },
     { id: "s4", title: "Manage Vegetable Stocks", icon: "archive-outline", route: "managePlant" },
   ]
 

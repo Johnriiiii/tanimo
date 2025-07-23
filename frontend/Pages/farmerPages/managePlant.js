@@ -127,7 +127,7 @@ const VegetableManagement = ({ navigation }) => {
 
     try {
       setIsLoading(true);
-      const response = await authAxios.patch(`/vegetable/${selectedVegetable._id}`, {
+      const response = await authAxios.patch(`/vegetables/${selectedVegetable._id}`, {
         ...editForm,
         quantity: parseInt(editForm.quantity),
         price: parseFloat(editForm.price)
@@ -168,7 +168,7 @@ const VegetableManagement = ({ navigation }) => {
   const confirmDelete = async (vegetableId) => {
     try {
       setIsLoading(true);
-      await authAxios.delete(`/vegetable/${vegetableId}`);
+      await authAxios.delete(`/vegetables/${vegetableId}`);
 
       // Update the local state
       setVegetables(vegetables.filter(veg => veg._id !== vegetableId));

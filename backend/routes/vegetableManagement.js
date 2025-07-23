@@ -41,6 +41,73 @@ const upload = multer({
 // Protect all routes
 router.use(authenticate);
 
+// Get all vegetables
+router.get('/', async (req, res) => {
+  try {
+    // Disable caching for this route
+    res.set('Cache-Control', 'no-store');
+    
+    const vegetables = await Vegetable.find()
+      .populate('gardener', 'name')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      status: 'success',
+      results: vegetables.length,
+      data: {
+        vegetables
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching vegetables:', err);
+    res.status(500).json({ 
+      status: 'error',
+      message: 'Failed to fetch vegetables' 
+    });
+  }
+});
+
+// Get single vegetable
+router.get('/:id', async (req, res) => {
+  try {
+    // Disable caching
+    res.set('Cache-Control', 'no-store');
+
+    console.log('Fetching vegetable with ID:', req.params.id);
+    
+    const vegetable = await Vegetable.findById(req.params.id)
+      .populate('gardener', 'name email')
+      .lean();
+    
+    if (!vegetable) {
+      console.log('Vegetable not found for ID:', req.params.id);
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Vegetable not found'
+      });
+    }
+
+    console.log('Found vegetable:', vegetable);
+
+    res.json({
+      status: 'success',
+      data: {
+        vegetable: {
+          ...vegetable,
+          price: parseFloat(vegetable.price),
+          quantity: parseInt(vegetable.quantity)
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching vegetable:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to fetch vegetable details'
+    });
+  }
+});
+
 // Create new vegetable with optional image (gardener only)
 router.post('/', upload.single('image'), async (req, res) => {
   try {

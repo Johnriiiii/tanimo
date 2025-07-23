@@ -5,26 +5,24 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import Toast from 'react-native-toast-message';
 import { toastConfig } from './utils/toast';
-
-// === Auth Screens ===
 import Login from './Pages/Auth/Login';
 import Register from './Pages/Auth/Register';
-
-// === Farmer Pages ===
 import Home from './Pages/farmerPages/farmerHome';
+import CustomDrawer from './Pages/farmerPages/farmerCustomDrawer';
+import PlantLibrary from './Pages/PlantLibrary';
+import VendorHomepage from './Pages/vendorPages/vendorHome';
 import MapScreen from './Pages/farmerPages/weatherMap';
 import WeatherScreen from './Pages/farmerPages/weather';
 import AIChatbot from './Pages/farmerPages/aiAssistant';
 import PlantHealthScreen from './Pages/farmerPages/imageprocessing';
 import SellVegetable from './Pages/farmerPages/plantManagement';
 import VegetableManagement from './Pages/farmerPages/managePlant';
-
-// === Vendor Pages ===
-import VendorHomepage from './Pages/vendorPages/vendorHome';
-import GardenersScreen from './Pages/vendorPages/gardenerScreen';
-
-// === Shared Pages ===
-import PlantLibrary from './Pages/PlantLibrary';
+import BrowseVegetables from './Pages/vendorPages/BrowseVegetables';
+import OrderDetails from './Pages/vendorPages/OrderDetails';
+import Orders from './Pages/farmerPages/Orders';
+import VendorOrders from './Pages/vendorPages/VendorOrders';
+import TrackDelivery from './Pages/vendorPages/DeliveryTracking';
+import DeliveryList from './Pages/vendorPages/DeliveryList';
 
 const Stack = createStackNavigator();
 
@@ -44,34 +42,90 @@ export default function App() {
       <NavigationContainer>
         <StatusBar style="auto" />
         <Stack.Navigator initialRouteName="Login">
-
-          {/* === Auth Screens === */}
-          <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
-          <Stack.Screen name="Register" component={Register} options={{ headerShown: false }} />
-
-          {/* === Farmer Screens === */}
-          <Stack.Screen name="Home" component={Home} options={{ headerShown: false }} />
-          <Stack.Screen name="weathermap" component={MapScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="weather" component={WeatherScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="AiChatBot" component={AIChatbot} options={{ headerShown: false }} />
-          <Stack.Screen name="imageProcessing" component={PlantHealthScreen} options={{ headerShown: false }} />
-          <Stack.Screen name="plantManagement" component={SellVegetable} options={{ headerShown: false }} />
-          <Stack.Screen name="managePlant" component={VegetableManagement} options={{ headerShown: false }} />
-
-
-          {/* === Vendor Screens === */}
-          <Stack.Screen name="VendorHome" component={VendorHomepage} options={{ headerShown: false }} />
-          <Stack.Screen name="Gardener" component={GardenersScreen} options={{ headerShown: false }} />
-
-
-          {/* === Shared Screens === */}
-
-          <Stack.Screen name="PlantLibrary" component={PlantLibrary} options={{ headerShown: true, title: 'Plant Library' }} />
-
+          <Stack.Screen 
+            name="Login" 
+            component={Login} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="Register" 
+            component={Register} 
+            options={{ headerShown: false }} 
+          />
+            <Stack.Screen 
+            name="Home" 
+            component={Home} 
+            options={{ headerShown: false }} 
+          />
+            <Stack.Screen 
+            name="VendorHome" 
+            component={VendorHomepage} 
+            options={{ headerShown: false }} 
+          />
+            <Stack.Screen 
+            name="weathermap" 
+            component={MapScreen} 
+            options={{ headerShown: false }} 
+          />
+           <Stack.Screen 
+            name="weather" 
+            component={WeatherScreen} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="AiChatBot" 
+            component={AIChatbot}
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="imageProcessing" 
+            component={PlantHealthScreen}
+            options={{ headerShown: false }} 
+          />
+           <Stack.Screen 
+            name="plantManagement" 
+            component={SellVegetable}
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen 
+            name="managePlant" 
+            component={VegetableManagement} a
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen name="PlantLibrary" component={PlantLibrary} />
+          <Stack.Screen 
+            name="BrowseVegetables" 
+            component={BrowseVegetables} 
+            options={{ headerShown: true, title: 'Browse Vegetables' }} 
+          />
+          <Stack.Screen 
+            name="OrderDetails" 
+            component={OrderDetails} 
+            options={{ headerShown: true, title: 'Order Details' }} 
+          />
+     
+          <Stack.Screen 
+            name="Orders" 
+            component={Orders} 
+            options={{ headerShown: true, title: 'View Inquiries/Orders' }} 
+          />
+          <Stack.Screen 
+            name="VendorOrders" 
+            component={VendorOrders} 
+            options={{ headerShown: true, title: 'Orders' }} 
+          />
+          <Stack.Screen 
+            name="DeliveryList" 
+            component={DeliveryList} 
+            options={{ headerShown: true, title: 'Deliveries' }} 
+          />
+          <Stack.Screen 
+            name="TrackDelivery" 
+            component={TrackDelivery} 
+            options={{ headerShown: true, title: 'Track Delivery' }} 
+          />
         </Stack.Navigator>
       </NavigationContainer>
-
-      {/* Toast Messages */}
       <Toast 
         config={toastConfig}
         position="top"

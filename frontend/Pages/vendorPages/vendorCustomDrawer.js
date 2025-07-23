@@ -27,8 +27,7 @@ const VendorCustomDrawer = ({ navigation, onClose }) => {
     { id: '2', title: 'Browse Farmers', icon: 'people-outline', route: 'Gardener' },
     { id: '3', title: 'Vegetables', icon: 'leaf-outline', route: 'BrowseVegetables' },
     { id: '4', title: 'Orders', icon: 'cart-outline', route: 'VendorOrders' },
-    { id: '5', title: 'Delivery Tracking', icon: 'navigate-outline', route: 'TrackDelivery' },
-    { id: '6', title: 'Chat', icon: 'chatbubbles-outline', route: 'VendorChat' },
+    { id: '5', title: 'Deliveries', icon: 'navigate-outline', route: 'DeliveryList' }
   ];
 
   const bottomItems = [
