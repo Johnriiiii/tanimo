@@ -28,12 +28,7 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 // Import routes
-const ordersRoute = require('./routes/orders');
-const createOrderRoute = require('./routes/createOrder');
-
-// Use routes
-app.use('/orders', ordersRoute);
-app.use('/api/orders', createOrderRoute);
+const deliveryRoutes = require('./routes/delivery');
 app.get("/", (req, res) => {
   res.json({
     status: 'success',
@@ -48,7 +43,8 @@ app.use("/ai", require("./routes/ai")); // Ai
 app.use("/vegetables", require("./routes/vegetableManagement")); // vegetable management
 app.use("/plant", require("./routes/plantScan"));
 app.use("/openai", require("./routes/openai"));
-app.use("/api/delivery", require("./routes/delivery")); // Delivery tracking routes
+app.use("/api/delivery", deliveryRoutes); // Delivery routes
+app.use("/orders", require("./routes/orders")); // Orders route (RESTful, now handles POST and GET)
 // Start server on all network interfaces
 app.listen(5000, '0.0.0.0', () => {
   console.log("Server is running on port 5000");

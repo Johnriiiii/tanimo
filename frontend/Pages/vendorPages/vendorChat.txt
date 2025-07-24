@@ -1,0 +1,932 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Image,
+  RefreshControl,
+  Modal,
+  Alert,
+} from 'react-native';
+import { io } from 'socket.io-client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import API_BASE_URL from '../../utils/api';
+import Icon from 'react-native-vector-icons/FontAwesome';
+import axios from 'axios';
+import { filterBadWords } from '../../utils/filteredwords';
+
+const AVATAR_PLACEHOLDER = 'https://ui-avatars.com/api/?background=73946B&color=fff&name=User';
+
+const AVATAR_PLACEHOLDER = 'https://ui-avatars.com/api/?background=73946B&color=fff&name=User';
+
+// Error boundary for handling runtime errors
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Chat Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Something went wrong.</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              this.setState({ hasError: false });
+              if (this.props.onRetry) {
+                this.props.onRetry();
+              }
+            }}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Main chat component
+const VendorChat = ({ route, navigation }) => {
+  // State
+  const [state, setState] = useState({
+    messages: [],
+    newMessage: '',
+    loading: true,
+    refreshing: false,
+    users: [],
+    filteredUsers: [],
+    searchText: '',
+    user: null,
+    error: null,
+    isModalVisible: false,
+    selectedMessageId: null,
+    socketConnected: false,
+    retryCount: 0
+  });
+
+  // Refs
+  const socketRef = useRef(null);
+  const flatListRef = useRef(null);
+
+  // State update handler
+  const updateState = useCallback((updates) => {
+    setState(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Chat Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Something went wrong.</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              this.setState({ hasError: false });
+              if (this.props.onRetry) {
+                this.props.onRetry();
+              }
+            }}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+const VendorChat = ({ route, navigation }) => {
+  // State and Refs - All hooks must be declared at the top
+  const [state, setState] = useState({
+    messages: [],
+    newMessage: '',
+    loading: true,
+    refreshing: false,
+    users: [],
+    filteredUsers: [],
+    searchText: '',
+    user: null,
+    error: null,
+    isModalVisible: false,
+    selectedMessageId: null,
+    socketConnected: false,
+    retryCount: 0
+  });
+  
+  // Refs
+  const socketRef = useRef(null);
+  const flatListRef = useRef(null);
+
+  // State update handler
+  const updateState = useCallback((updates) => {
+    setState(prev => ({ ...prev, ...updates }));
+  }, []);
+
+  // Helper function
+  const formatTimestamp = useCallback((timestamp) => {
+    try {
+      const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        return 'Just now';
+      }
+
+      const now = new Date();
+      const diffInSeconds = Math.floor((now - date) / 1000);
+
+      if (diffInSeconds < 60) return 'Just now';
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (e) {
+      console.error('Error formatting timestamp:', e);
+      return '';
+    }
+  }, []);
+
+  // Socket handlers
+  const handleNewMessage = useCallback((message) => {
+    console.log('Received new message:', message);
+    updateState(prev => ({
+      ...prev,
+      messages: [...prev.messages, message]
+    }));
+  }, [updateState]);
+
+  const handleSocketConnect = useCallback(() => {
+    console.log('Connected to socket server');
+    updateState({ socketConnected: true });
+    loadUserData();
+  }, [updateState]);
+
+  const handleSocketError = useCallback((error) => {
+    console.error('Socket connection error:', error);
+    updateState({ 
+      error: 'Failed to connect to server',
+      socketConnected: false 
+    });
+  }, [updateState]);
+
+  // Socket setup
+  const setupSocket = useCallback(() => {
+    console.log('Attempting to connect to:', API_BASE_URL);
+    socketRef.current = io(API_BASE_URL, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      autoConnect: true,
+      path: '/socket.io'
+    });
+    
+    socketRef.current.on('connect', handleSocketConnect);
+    socketRef.current.on('connect_error', handleSocketError);
+    socketRef.current.on('new-message', handleNewMessage);
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off('connect', handleSocketConnect);
+        socketRef.current.off('connect_error', handleSocketError);
+        socketRef.current.off('new-message', handleNewMessage);
+        socketRef.current.disconnect();
+      }
+    };
+  }, [handleSocketConnect, handleSocketError, handleNewMessage]);
+
+  // API Calls
+  const loadChatHistory = useCallback(async (userId) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      
+      if (!route.params?.farmerId) {
+        console.error('No farmerId provided in route params');
+        updateState({ loading: false, error: 'No farmer ID provided' });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/chat/history/${route.params.farmerId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        updateState({
+          messages: data.messages || [],
+          loading: false,
+          error: null
+        });
+      } else {
+        throw new Error(data.message || 'Failed to load chat history');
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      updateState({
+        error: error.message || 'Failed to load chat history',
+        loading: false
+      });
+    }
+  }, [route.params?.farmerId, updateState]);
+
+  const loadUserData = useCallback(async () => {
+    try {
+      const userData = await AsyncStorage.getItem('user');
+      
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        updateState({ user: parsedUser });
+        
+        if (socketRef.current && socketRef.current.connected) {
+          socketRef.current.emit('register', parsedUser._id);
+          loadChatHistory(parsedUser._id);
+        } else {
+          updateState({ loading: false, error: 'Socket not connected' });
+        }
+      } else {
+        updateState({ loading: false, error: 'No user data found' });
+      }
+    } catch (error) {
+      updateState({ 
+        loading: false, 
+        error: error.message || 'Error loading user data'
+      });
+    }
+  }, [updateState, loadChatHistory]);
+
+  // Message handling
+  const deleteMessage = useCallback(async (messageId) => {
+    try {
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) throw new Error('Authentication failed');
+
+      await axios.delete(`${API_BASE_URL}/chat/${messageId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      updateState(prev => ({
+        ...prev,
+        messages: prev.messages.filter(msg => msg._id !== messageId)
+      }));
+      socketRef.current?.emit('messageDeleted', { messageId });
+    } catch (err) {
+      console.error('Error deleting message:', err.message);
+      Alert.alert('Error', 'Failed to delete message');
+    }
+  }, [updateState]);
+
+  const sendMessage = useCallback(async () => {
+    if (!state.newMessage.trim() || !state.user) return;
+
+    const filteredMessage = filterBadWords(state.newMessage.trim());
+    if (filteredMessage !== state.newMessage.trim()) {
+      Alert.alert('Warning', 'Your message contains inappropriate content');
+      return;
+    }
+
+    const tempMessage = {
+      _id: new Date().getTime().toString(),
+      senderId: state.user._id,
+      message: filteredMessage,
+      timestamp: new Date(),
+    };
+
+    updateState(prev => ({
+      ...prev,
+      messages: [...prev.messages, tempMessage],
+      newMessage: ''
+    }));
+
+    try {
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) throw new Error('Authentication failed');
+
+      const messageData = {
+        senderId: state.user._id,
+        receiverId: route.params?.farmerId,
+        message: filteredMessage,
+      };
+
+      socketRef.current?.emit('private-message', messageData);
+    } catch (err) {
+      updateState(prev => ({
+        ...prev,
+        messages: prev.messages.filter(msg => msg._id !== tempMessage._id)
+      }));
+      Alert.alert('Error', 'Failed to send message');
+    }
+  }, [state.newMessage, state.user, route.params?.farmerId, updateState]);
+
+  const handleLongPress = useCallback((messageId, senderId) => {
+    if (senderId === state.user?._id) {
+      updateState({
+        selectedMessageId: messageId,
+        isModalVisible: true
+      });
+    }
+  }, [state.user, updateState]);
+
+  const confirmDeleteMessage = useCallback(() => {
+    if (state.selectedMessageId) {
+      deleteMessage(state.selectedMessageId);
+      updateState({
+        isModalVisible: false,
+        selectedMessageId: null
+      });
+    }
+  }, [state.selectedMessageId, deleteMessage, updateState]);
+
+  // Search functionality
+  const handleSearchChange = useCallback((text) => {
+    updateState(prev => {
+      const newState = { ...prev, searchText: text };
+      if (text.trim() === '') {
+        newState.filteredUsers = prev.users;
+      } else {
+        const query = text.toLowerCase();
+        newState.filteredUsers = prev.users.filter(user => 
+          user.name && user.name.toLowerCase().includes(query)
+        );
+      }
+      return newState;
+    });
+  }, [updateState]);
+
+  const onRefresh = useCallback(() => {
+    updateState({ refreshing: true });
+    loadUserData();
+  }, [updateState, loadUserData]);
+
+  const handleRetry = useCallback(() => {
+    updateState({
+      loading: true,
+      error: null,
+      retryCount: state.retryCount + 1
+    });
+    setupSocket();
+  }, [state.retryCount, updateState, setupSocket]);
+    try {
+      const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+      if (isNaN(date.getTime())) {
+        return 'Just now';
+      }
+
+      const now = new Date();
+      const diffInSeconds = Math.floor((now - date) / 1000);
+
+      if (diffInSeconds < 60) return 'Just now';
+      if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+      if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (e) {
+      console.error('Error formatting timestamp:', e);
+      return '';
+    }
+  };
+
+  useEffect(() => {
+    setupSocket();
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off('connect', handleSocketConnect);
+        socketRef.current.off('connect_error', handleSocketError);
+        socketRef.current.off('new-message', handleNewMessage);
+        socketRef.current.disconnect();
+      }
+    };
+  }, [setupSocket, handleSocketConnect, handleSocketError, handleNewMessage]);
+    try {
+      const token = await AsyncStorage.getItem('token');
+      console.log('Token:', token);
+      console.log('FarmerId:', route.params?.farmerId);
+      
+      if (!route.params?.farmerId) {
+        console.error('No farmerId provided in route params');
+        updateState({ loading: false });
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/chat/history/${route.params.farmerId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      console.log('Response status:', response.status);
+      const data = await response.json();
+      console.log('Chat history:', data);
+      
+      if (data.success) {
+        updateState({
+          messages: data.messages || [],
+          loading: false,
+          error: null
+        });
+      } else {
+        throw new Error(data.message || 'Failed to load chat history');
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      updateState({
+        error: error.message || 'Failed to load chat history',
+        loading: false
+      });
+    }
+  }, [route.params?.farmerId, updateState]);
+
+  const deleteMessage = async (messageId) => {
+    try {
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) throw new Error('Authentication failed');
+
+      await axios.delete(`${API_BASE_URL}/chat/${messageId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      updateState(prev => ({
+        ...prev,
+        messages: prev.messages.filter(msg => msg._id !== messageId)
+      }));
+      socketRef.current.emit('messageDeleted', { messageId });
+    } catch (err) {
+      console.error('Error deleting message:', err.message);
+      Alert.alert('Error', 'Failed to delete message');
+    }
+  };
+
+  const sendMessage = useCallback(async () => {
+    if (!state.newMessage.trim() || !state.user) return;
+
+    const filteredMessage = filterBadWords(state.newMessage.trim());
+    if (filteredMessage !== state.newMessage.trim()) {
+      Alert.alert('Warning', 'Your message contains inappropriate content');
+      return;
+    }
+
+    const tempMessage = {
+      _id: new Date().getTime().toString(),
+      senderId: state.user._id,
+      message: filteredMessage,
+      timestamp: new Date(),
+    };
+
+    updateState(prev => ({
+      ...prev,
+      messages: [...prev.messages, tempMessage],
+      newMessage: ''
+    }));
+
+    const scrollToEnd = () => {
+      if (flatListRef.current) {
+        flatListRef.current.scrollToEnd({ animated: true });
+      }
+    };
+    setTimeout(scrollToEnd, 100);
+
+    try {
+      const token = await AsyncStorage.getItem('jwt');
+      if (!token) throw new Error('Authentication failed');
+
+      const messageData = {
+        senderId: state.user._id,
+        receiverId: route.params?.farmerId,
+        message: filteredMessage,
+      };
+
+      socketRef.current.emit('private-message', messageData);
+    } catch (err) {
+      console.error('Error sending message:', err.message);
+      updateState(prev => ({
+        ...prev,
+        messages: prev.messages.filter(msg => msg._id !== tempMessage._id)
+      }));
+      Alert.alert('Error', 'Failed to send message');
+    }
+  }, [state.newMessage, state.user, route.params?.farmerId, updateState]);
+
+  const renderMessage = useCallback(({ item }) => {
+    const isOwnMessage = item.senderId === state.user?._id;
+
+    return (
+      <TouchableOpacity
+        onLongPress={() => handleLongPress(item._id, item.senderId)}
+        activeOpacity={0.8}
+      >
+        <View style={[
+          styles.messageWrapper,
+          isOwnMessage ? styles.myMessageWrapper : styles.otherMessageWrapper,
+        ]}>
+          {!isOwnMessage && (
+            <Image
+              source={{ uri: item.senderImage || AVATAR_PLACEHOLDER }}
+              style={styles.userAvatar}
+            />
+          )}
+          <View style={[
+            styles.messageContainer,
+            isOwnMessage ? styles.ownMessage : styles.otherMessage,
+          ]}>
+            <Text style={styles.messageText}>{item.message}</Text>
+            <Text style={styles.timestamp}>
+              {formatTimestamp(item.timestamp)}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [state.user, handleLongPress, formatTimestamp]);
+
+  if (state.loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0066cc" />
+      </View>
+    );
+  }
+
+  const renderUserItem = useCallback(({ item }) => (
+    <TouchableOpacity
+      onPress={() => navigation.navigate('ChatDetail', { userId: item._id, name: item.name })}
+      style={styles.userCard}
+      activeOpacity={0.8}
+    >
+      <View style={styles.avatarContainer}>
+        <Image
+          source={{ uri: item.profilePhoto || AVATAR_PLACEHOLDER }}
+          style={styles.userAvatar}
+        />
+      </View>
+      <Text style={styles.userName} numberOfLines={1}>{item.name}</Text>
+    </TouchableOpacity>
+  ), [navigation]);
+
+  const renderChatMessage = useCallback(({ item }) => {
+    const isOwnMessage = item.senderId === state.user?._id;
+    return (
+      <View style={[
+        styles.messageContainer,
+        isOwnMessage ? styles.ownMessage : styles.otherMessage,
+      ]}>
+        <Text style={[
+          styles.messageText,
+          isOwnMessage ? styles.ownMessageText : styles.otherMessageText,
+        ]}>{item.message}</Text>
+        <Text style={[
+          styles.timestamp,
+          isOwnMessage ? styles.ownTimestamp : styles.otherTimestamp,
+        ]}>
+          {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+    );
+  }, [state.user]);
+
+  const handleSearchChange = useCallback((text) => {
+    updateState(prev => {
+      const newState = { ...prev, searchText: text };
+      if (text.trim() === '') {
+        newState.filteredUsers = prev.users;
+      } else {
+        const query = text.toLowerCase();
+        newState.filteredUsers = prev.users.filter(user => 
+          user.name && user.name.toLowerCase().includes(query)
+        );
+      }
+      return newState;
+    });
+  }, [updateState]);
+
+  const onRefresh = useCallback(() => {
+    updateState({ refreshing: true });
+    loadUserData();
+  }, [updateState, loadUserData]);
+
+  if (state.loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#73946B" />
+      </View>
+    );
+  }
+
+  if (state.error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>{state.error}</Text>
+      </View>
+    );
+  }
+
+  const handleRetry = useCallback(() => {
+    updateState({
+      loading: true,
+      error: null,
+      retryCount: state.retryCount + 1
+    });
+    setupSocket();
+  }, [state.retryCount, updateState, setupSocket]);
+
+  return (
+    <ErrorBoundary onRetry={handleRetry}>
+      <View style={styles.container}>
+        <Text style={styles.header}>Chats</Text>
+        <TextInput
+        style={styles.searchInput}
+        placeholder="Search users..."
+        value={state.searchText}
+        onChangeText={text => updateState({ searchText: text })}
+        placeholderTextColor="#b2bec3"
+      />
+
+      <Modal
+        visible={state.isModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => updateState({ isModalVisible: false })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Delete Message</Text>
+            <Text style={styles.modalText}>Are you sure you want to delete this message?</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => updateState({ isModalVisible: false })}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={confirmDeleteMessage}
+              >
+                <Text style={styles.confirmButtonText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <FlatList
+        data={state.filteredUsers}
+        renderItem={renderUserItem}
+        keyExtractor={(item) => item._id}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.userList}
+        contentContainerStyle={{ paddingVertical: 8 }}
+      />
+
+      <View style={{ marginVertical: 12 }} />
+
+      <FlatList
+        ref={flatListRef}
+        data={state.messages}
+        renderItem={renderChatMessage}
+        keyExtractor={(item, index) => item._id || index.toString()}
+        contentContainerStyle={state.messages.length === 0 && { flex: 1, justifyContent: 'center' }}
+        ListEmptyComponent={
+          <Text style={styles.emptyChatsText}>No messages yet. Start a conversation!</Text>
+        }
+        refreshControl={
+          <RefreshControl refreshing={state.refreshing} onRefresh={onRefresh} tintColor="#73946B" />
+        }
+      />
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : null}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            value={state.newMessage}
+            onChangeText={(text) => updateState({ newMessage: text })}
+            placeholder="Type a message..."
+            multiline
+          />
+          <TouchableOpacity 
+            style={styles.sendButton}
+            onPress={sendMessage}
+          >
+            <Text style={styles.sendButtonText}>Send</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+    </ErrorBoundary>
+  );
+};
+
+const styles = StyleSheet.create({
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#73946B',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#73946B',
+    marginTop: 10,
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  searchInput: {
+    height: 44,
+    marginHorizontal: 20,
+    marginBottom: 10,
+    borderRadius: 22,
+    backgroundColor: '#fff',
+    borderColor: '#73946B',
+    borderWidth: 1,
+    paddingLeft: 18,
+    fontSize: 15,
+  },
+  userList: {
+    minHeight: 95,
+    paddingLeft: 10,
+  },
+  messageContainer: {
+    maxWidth: '80%',
+    marginVertical: 5,
+    padding: 10,
+    borderRadius: 15,
+  },
+  ownMessage: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#73946B',
+  },
+  otherMessage: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#e4e6eb',
+  },
+  messageText: {
+    fontSize: 16,
+  },
+  ownMessageText: {
+    color: '#fff',
+  },
+  otherMessageText: {
+    color: '#222831',
+  },
+  timestamp: {
+    fontSize: 12,
+    marginTop: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#555',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 6,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  cancelButton: {
+    backgroundColor: '#EEEEEE',
+  },
+  confirmButton: {
+    backgroundColor: '#F44336',
+  },
+  cancelButtonText: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  confirmButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    padding: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  input: {
+    flex: 1,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    maxHeight: 100,
+    marginRight: 10,
+  },
+  sendButton: {
+    backgroundColor: '#73946B',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+  },
+  sendButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  emptyChatsText: {
+    color: '#9EBC8A',
+    textAlign: 'center',
+    marginTop: 40,
+    fontStyle: 'italic',
+    fontSize: 16,
+  }
+});
+
+export default VendorChat;

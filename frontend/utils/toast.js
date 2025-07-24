@@ -48,4 +48,16 @@ export const toastConfig = {
       {text2 && <Text style={{ color: 'white', fontSize: 14 }}>{text2}</Text>}
     </View>
   ),
+  warning: ({ text1, text2 }) => (
+    <View style={{ 
+      width: '90%', 
+      backgroundColor: '#FFB302', 
+      padding: 15, 
+      borderRadius: 10,
+      marginBottom: 10,
+    }}>
+      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>{text1}</Text>
+      {text2 && <Text style={{ color: 'white', fontSize: 14 }}>{text2}</Text>}
+    </View>
+  ),
 };

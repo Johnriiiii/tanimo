@@ -90,7 +90,7 @@ const VegetableManagement = ({ navigation }) => {
   const fetchVegetables = async () => {
     try {
       setIsLoading(true);
-      const response = await authAxios.get('/vegetable', {
+      const response = await authAxios.get('/vegetables', {
         params: {
           gardener: user._id // Only fetch vegetables for the current gardener
         }

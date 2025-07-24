@@ -172,7 +172,7 @@ const SellVegetable = ({ navigation }) => {
     }
 
     // Send all data in one request
-    await authAxios.post('/vegetable', formData, {
+    await authAxios.post('/vegetables', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
