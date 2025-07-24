@@ -454,38 +454,11 @@ const Orders = ({ navigation }) => {
   const fetchOrders = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('jwt');
-      const userType = await AsyncStorage.getItem('userType');
-      
-      console.log('=== DEBUG ORDER FETCH ===');
-      console.log('User Type:', userType);
-      console.log('Token present:', !!token);
-      if (token) console.log('Token:', token.substring(0, 20) + '...');
-      
       if (!token) {
         navigation.replace('Login');
         return;
       }
-
-      console.log('Fetching deliveries from:', `${API_BASE_URL}/api/delivery`);
-      console.log('Using complete token:', token);
-
-      // First check if the API is accessible
-      try {
-        const testResponse = await fetch(API_BASE_URL);
-        const testText = await testResponse.text();
-        console.log('API root response:', testText.substring(0, 200)); // Log first 200 chars
-        if (testText.includes('<!DOCTYPE html>')) {
-          throw new Error('API server is returning HTML instead of JSON. Server might be down.');
-        }
-      } catch (testError) {
-        console.error('API connection test failed:', testError);
-        throw new Error(`Cannot connect to API server at ${API_BASE_URL}. Server might be down.`);
-      }
-
-      // Now try to fetch orders
-      console.log('Using token:', token); // Debug log
-      
-      let response = await fetch(`${API_BASE_URL}/api/delivery`, {
+      const response = await fetch(`${API_BASE_URL}/api/delivery`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -493,73 +466,32 @@ const Orders = ({ navigation }) => {
           'Content-Type': 'application/json'
         }
       });
-
-      // Log the complete response for debugging
-      console.log('Response status:', response.status);
-      const responseHeaders = {};
-      response.headers.forEach((value, key) => {
-        responseHeaders[key] = value;
-      });
-      console.log('Response headers:', responseHeaders);
-
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
-      // Get the raw response text first
       const text = await response.text();
-      console.log('Raw response:', text.substring(0, 200)); // Log first 200 chars
-
       let data;
       try {
         data = JSON.parse(text);
       } catch (parseError) {
-        console.error('Response parsing error. Raw response:', text);
-        if (text.includes('<!DOCTYPE html>')) {
-          throw new Error('Server returned HTML instead of JSON. The API server might be returning an error page.');
-        }
-        throw new Error(`Invalid JSON response from server: ${text.substring(0, 100)}...`);
+        throw new Error('Invalid JSON response from server.');
       }
-
       if (!response.ok) {
         throw new Error(data.message || 'Failed to fetch orders');
       }
-      console.log('Fetched orders:', data); // Debug log
-      
-      // Transform the data to include timeline and use orderNumber as orderId
-      let ordersWithTimeline = [];
-      if (Array.isArray(data)) {
-        ordersWithTimeline = data.map(order => ({
-          ...order,
-          orderId: order.orderNumber, // Use orderNumber as the orderId
-          status: order.status, // Keep original status format
-          timeline: [
-            { 
-              status: order.status, 
-              timestamp: order.createdAt || new Date() 
-            }
-          ].concat((order.statusHistory || []).map(history => ({
-            ...history,
-            status: history.status
-          })))
-        }));
-      } else if (Array.isArray(data.deliveries)) {
-        ordersWithTimeline = data.deliveries.map(order => ({
-          ...order,
-          orderId: order.orderNumber, // Use orderNumber as the orderId
-          status: order.status, // Keep original status format
-          timeline: [
-            { 
-              status: order.status, 
-              timestamp: order.createdAt || new Date() 
-            }
-          ].concat((order.statusHistory || []).map(history => ({
-            ...history,
-            status: history.status
-          })))
-        }));
-      } else {
-        ordersWithTimeline = [];
-      }
+      // Always use the deliveries array from the backend
+      const deliveries = Array.isArray(data.deliveries) ? data.deliveries : (Array.isArray(data) ? data : []);
+      const ordersWithTimeline = deliveries.map(order => ({
+        ...order,
+        orderId: order.orderNumber,
+        status: order.status,
+        timeline: [
+          {
+            status: order.status,
+            timestamp: order.createdAt || new Date()
+          }
+        ].concat((order.statusHistory || []).map(history => ({
+          ...history,
+          status: history.status
+        })))
+      }));
       setOrders(ordersWithTimeline);
     } catch (err) {
       setError(err.message);
@@ -620,398 +552,34 @@ const Orders = ({ navigation }) => {
     if (!token) {
       throw new Error('Authentication token not found');
     }
-
-    // Find the delivery in our local state and ensure we have the full order data
-    console.log('Looking for order with ID:', orderId);
-    console.log('Available orders:', orders.map(o => ({ 
-      id: o._id, 
-      gardener: o.gardener,
-      orderNumber: o.orderNumber,
-      status: o.status
-    })));
-    
-    const delivery = orders.find(o => o._id === orderId);
-    if (!delivery) {
-      throw new Error('Order not found in local state');
-    }
-
-    // Clone the delivery object to ensure we have all fields
-    const deliveryData = JSON.parse(JSON.stringify(delivery));
-    
-    console.log('Found order:', {
-      id: deliveryData._id,
-      orderNumber: deliveryData.orderNumber,
-      gardener: deliveryData.gardener,
-      customerContact: deliveryData.customerContact,
-      status: deliveryData.status
-    });
-
-    // Get current status from the delivery
-    const currentStatus = delivery.status;
-
-    // Normalize status for comparison
-    const normalizeStatus = (status) => {
-      return status.toLowerCase().replace(/_/g, ' ');
-    };
-
-    const normalizedCurrentStatus = normalizeStatus(currentStatus);
-    const normalizedNewStatus = normalizeStatus(newStatus);
-
-    // Find exact status match with more robust matching
-    const getExactStatus = (normalizedStatus) => {
-      const match = Object.values(STATUS).find(s => 
-        normalizeStatus(s) === normalizedStatus || 
-        s.toLowerCase() === normalizedStatus ||
-        s === normalizedStatus
-      );
-      if (!match) {
-        throw new Error(`Invalid status. Allowed statuses are: ${Object.values(STATUS).join(', ')}`);
-      }
-      return match;
-    };
-
-    // Get properly formatted statuses
-    let formattedCurrentStatus = currentStatus;
-    let formattedNewStatus = newStatus;
-
-    // Only reformat if the status doesn't exactly match one of our valid statuses
-    if (!Object.values(STATUS).includes(currentStatus)) {
-      formattedCurrentStatus = getExactStatus(normalizedCurrentStatus);
-    }
-    if (!Object.values(STATUS).includes(newStatus)) {
-      formattedNewStatus = getExactStatus(normalizedNewStatus);
-    }
-
-    // Check if transition is allowed
-    const allowedNextStatuses = statusTransitionMap[formattedCurrentStatus.toLowerCase()] || [];
-    if (!allowedNextStatuses.includes(formattedNewStatus)) {
-      console.log('Current status:', formattedCurrentStatus);
-      console.log('Attempted new status:', formattedNewStatus);
-      console.log('Allowed next statuses:', allowedNextStatuses);
-      throw new Error(`Cannot update from ${formattedCurrentStatus} to ${formattedNewStatus}. Allowed next statuses are: ${allowedNextStatuses.join(', ')}`);
-    }
-
-    // Calculate total amount from items
-    const calculatedTotalAmount = delivery.items.reduce((total, item) => {
-      return total + (item.price || 0) * (item.quantity || 0);
-    }, 0);
-
-    // Ensure required fields are properly structured and populated
-    // First, validate that customer contact exists and has required fields
-    // Always provide a valid customerContact object
-    // Always build a valid customerContact object
-    let safeCustomerContact = {
-      name: '',
-      phone: '',
-      email: ''
-    };
-    if (delivery.customerContact && typeof delivery.customerContact === 'object') {
-      safeCustomerContact.name = typeof delivery.customerContact.name === 'string' && delivery.customerContact.name.trim() !== ''
-        ? delivery.customerContact.name.trim()
-        : (typeof delivery.customerName === 'string' && delivery.customerName.trim() !== '' ? delivery.customerName.trim() : 'Customer');
-      safeCustomerContact.phone = typeof delivery.customerContact.phone === 'string' && delivery.customerContact.phone.trim() !== ''
-        ? delivery.customerContact.phone.trim()
-        : (delivery.address?.phone || 'N/A');
-      safeCustomerContact.email = typeof delivery.customerContact.email === 'string' && delivery.customerContact.email.trim() !== ''
-        ? delivery.customerContact.email.trim()
-        : (delivery.address?.email || '');
-    } else {
-      safeCustomerContact.name = typeof delivery.customerName === 'string' && delivery.customerName.trim() !== ''
-        ? delivery.customerName.trim()
-        : 'Customer';
-      safeCustomerContact.phone = delivery.address?.phone || 'N/A';
-      safeCustomerContact.email = delivery.address?.email || '';
-    }
-    // Guarantee customerContact is always present
-    if (!safeCustomerContact.name) safeCustomerContact.name = 'Customer';
-    if (!safeCustomerContact.phone) safeCustomerContact.phone = 'N/A';
-    if (!safeCustomerContact.email) safeCustomerContact.email = '';
-
-    // Strictly validate and filter items
-    const originalItems = delivery.items;
-    // Defensive items mapping with proper vegetable_id field
-    const mappedItems = Array.isArray(originalItems) ? originalItems.map(item => {
-      // Extract vegetable ID with better handling of nested objects
-      let vegetableId;
-      if (item.vegetable) {
-        if (typeof item.vegetable === 'object') {
-          // If it's an object, try to get the _id
-          vegetableId = item.vegetable._id;
-        } else {
-          // If it's already a string (ID), use it directly
-          vegetableId = item.vegetable;
-        }
-      }
-      // Fallbacks for legacy data formats
-      if (!vegetableId) {
-        vegetableId = item.vegetableId || item.vegetable_id || item._id;
-      }
-
-      // Ensure we have a clean string ID
-      const cleanVegetableId = typeof vegetableId === 'string' ? vegetableId.trim() : '';
-      
-      // Get quantity and price, preserve existing values
-      const quantity = item.quantity || 0;
-      const price = item.price || 0;
-
-      return {
-        quantity: !isNaN(quantity) && quantity >= 1 ? quantity : 1,
-        price: !isNaN(price) && price >= 0 ? price : 0,
-        name: typeof item.name === 'string' ? item.name.trim() : '',
-        vegetable: cleanVegetableId, // Backend expects 'vegetable' field
-      };
-    }) : [];
-    // Only keep items with valid vegetable ID, quantity, and price
-    const validItems = mappedItems.filter(item => {
-      // Debug: Log each item's vegetable field for troubleshooting
-      console.log('Processing item:', {
-        name: item.name,
-        vegetable: item.vegetable,
-        quantity: item.quantity,
-        price: item.price
-      });
-
-      // Ensure vegetable field is a valid ObjectId (24 character hex string)
-      const hasValidVegetableId = typeof item.vegetable === 'string' && 
-        item.vegetable.match(/^[0-9a-fA-F]{24}$/);
-      
-      // Ensure quantity is a valid number >= 1
-      const hasValidQuantity = typeof item.quantity === 'number' && !isNaN(item.quantity) && item.quantity >= 1;
-      
-      // Ensure price is a valid number >= 0
-      const hasValidPrice = typeof item.price === 'number' && !isNaN(item.price) && item.price >= 0;
-
-      // Log validation results for debugging
-      if (!hasValidVegetableId) console.log('Invalid vegetable ID for item:', item);
-      if (!hasValidQuantity) console.log('Invalid quantity for item:', item);
-      if (!hasValidPrice) console.log('Invalid price for item:', item);
-
-      return hasValidVegetableId && hasValidQuantity && hasValidPrice;
-    });
-
-    // Debug log
-    console.log('Original items:', originalItems);
-    console.log('Mapped items:', mappedItems);
-    console.log('Valid items after filtering:', validItems);
-
-    // Debug: Log item validation results
-    if (!validItems || validItems.length === 0) {
-      console.log('Original order items:', originalItems);
-      console.log('Items after mapping:', mappedItems);
-      
-      // Give more specific error message about what's missing
-      const itemErrors = mappedItems.map(item => {
-        const errors = [];
-        if (!item.vegetable?.match(/^[0-9a-fA-F]{24}$/)) errors.push('invalid vegetable ID');
-        if (!item.quantity || item.quantity < 1) errors.push('invalid quantity');
-        if (!item.price || item.price < 0) errors.push('invalid price');
-        return `${item.name || 'Item'}: ${errors.join(', ')}`;
-      }).join('; ');
-      
-      showToast('error', 'Error', `Invalid items: ${itemErrors}`);
-      throw new Error('Order items validation failed: ' + itemErrors);
-    }
-
-    // Always build a valid deliveryAddress object
-    let safeDeliveryAddress = {
-      street: '', city: '', state: '', zipCode: '' // Match schema exactly
-    };
-    if (delivery.deliveryAddress && typeof delivery.deliveryAddress === 'object') {
-      safeDeliveryAddress.street = delivery.deliveryAddress.street || '';
-      safeDeliveryAddress.city = delivery.deliveryAddress.city || '';
-      safeDeliveryAddress.state = delivery.deliveryAddress.state || '';
-      safeDeliveryAddress.zipCode = delivery.deliveryAddress.postalCode || delivery.deliveryAddress.zipCode || '';
-    } else if (delivery.address && typeof delivery.address === 'object') {
-      safeDeliveryAddress.street = delivery.address.street || '';
-      safeDeliveryAddress.city = delivery.address.city || '';
-      safeDeliveryAddress.state = delivery.address.state || '';
-      safeDeliveryAddress.zipCode = delivery.address.postalCode || delivery.address.zipCode || '';
-      safeDeliveryAddress.country = delivery.address.country || '';
-      safeDeliveryAddress.phone = delivery.address.phone || '';
-      safeDeliveryAddress.email = delivery.address.email || '';
-    }
-    // Ensure delivery address fields match schema
-    safeDeliveryAddress = {
-      street: safeDeliveryAddress.street || '',
-      city: safeDeliveryAddress.city || '',
-      state: safeDeliveryAddress.state || '',
-      zipCode: safeDeliveryAddress.zipCode || '' // Only include fields defined in schema
-    };
-
-    // Calculate and validate total amount
-    const safeTotalAmount = validItems.reduce((sum, i) => {
-      const itemTotal = Number(i.price) * Number(i.quantity);
-      return isNaN(itemTotal) ? sum : sum + itemTotal;
-    }, 0);
-    
-    // Ensure we have a valid number
-    if (typeof safeTotalAmount !== 'number' || isNaN(safeTotalAmount) || safeTotalAmount < 0) {
-      throw new Error('Cannot calculate valid total amount from items');
-    }
-
-    // Get customer contact ID - must be a valid ObjectId reference to User model
-    let customerContactId;
-    
-    // Debug logging for customer contact related fields
-    console.log('Customer contact debug:', {
-      customerContact: delivery.customerContact,
-      gardener: delivery.gardener,
-      customerId: delivery.customerId,
-      _id: delivery._id
-    });
-
-    // Extract the user ID (could be gardener or customer) with detailed validation
-    if (deliveryData.gardener && typeof deliveryData.gardener === 'string' && 
-        deliveryData.gardener.match(/^[0-9a-fA-F]{24}$/)) {
-      console.log('Using gardener ID:', deliveryData.gardener);
-      customerContactId = deliveryData.gardener;
-    } 
-    // If no gardener ID, try using the JWT token's user ID since this is a gardener's view
-    else {
-      try {
-        const token = await AsyncStorage.getItem('jwt');
-        if (token) {
-          // Decode JWT token to get user ID
-          const tokenParts = token.split('.');
-          if (tokenParts.length === 3) {
-            const payload = JSON.parse(atob(tokenParts[1]));
-            if (payload.id && typeof payload.id === 'string' && 
-                payload.id.match(/^[0-9a-fA-F]{24}$/)) {
-              console.log('Using authenticated user ID:', payload.id);
-              customerContactId = payload.id;
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Failed to extract user ID from token:', e);
-      }
-    }
-
-    // Validate the ID format with detailed error reporting
-    if (!customerContactId) {
-      console.error('Missing customer contact ID. Order data:', {
-        gardener: delivery.gardener,
-        customerContact: delivery.customerContact,
-        customerId: delivery.customerId
-      });
-      throw new Error('Customer contact ID is missing. Please ensure the order has a valid gardener or customer reference.');
-    }
-    
-    if (typeof customerContactId !== 'string') {
-      console.error('Customer contact ID is not a string:', customerContactId);
-      throw new Error('Customer contact ID must be a string value.');
-    }
-    
-    if (!customerContactId.match(/^[0-9a-fA-F]{24}$/)) {
-      console.error('Customer contact ID is not a valid MongoDB ObjectId:', customerContactId);
-      throw new Error(`Customer contact ID must be a 24-character hexadecimal string. Got: ${customerContactId}`);
-    }
-    
-    console.log('Using validated customer contact ID:', customerContactId);
-
-    // Create a minimal update payload with only the required fields
-    const updateData = {
-      status: formattedNewStatus,
-      customerContact: customerContactId,
-      totalAmount: safeTotalAmount,
-      items: [{
-        vegetable: validItems[0].vegetable,
-        quantity: validItems[0].quantity,
-        price: validItems[0].price
-      }]
-    };
-
-    // Log each required field for validation
-    console.log('Validation check:', {
-      status: updateData.status,
-      customerContact: updateData.customerContact,
-      totalAmount: updateData.totalAmount,
-      firstItem: updateData.items[0]
-    });
-
-    // Debug the final payload
-    console.log('Final PATCH payload:', JSON.stringify(updateData, null, 2));
-
-    // Debug log outgoing payload
+    // Only send the status field as required by backend
+    const updateData = { status: newStatus };
     console.log('PATCH updateData:', JSON.stringify(updateData, null, 2));
-
-    // Pre-request validation with detailed error messages
-    const validationErrors = [];
-    
-    if (!updateData.status || typeof updateData.status !== 'string') {
-      validationErrors.push('Invalid status format');
-    }
-    
-    if (!updateData.customerContact || !updateData.customerContact.match(/^[0-9a-fA-F]{24}$/)) {
-      validationErrors.push('Invalid customerContact ID format');
-    }
-    
-    if (!updateData.totalAmount || typeof updateData.totalAmount !== 'number' || updateData.totalAmount < 0) {
-      validationErrors.push('Invalid totalAmount');
-    }
-    
-    if (!updateData.items || !Array.isArray(updateData.items) || updateData.items.length === 0) {
-      validationErrors.push('Items array is required');
-    } else {
-      const item = updateData.items[0];
-      if (!item.vegetable || !item.vegetable.match(/^[0-9a-fA-F]{24}$/)) {
-        validationErrors.push('Invalid vegetable ID format');
-      }
-      if (typeof item.quantity !== 'number' || item.quantity < 1) {
-        validationErrors.push('Invalid quantity');
-      }
-      if (typeof item.price !== 'number' || item.price < 0) {
-        validationErrors.push('Invalid price');
-      }
-    }
-    
-    if (validationErrors.length > 0) {
-      throw new Error('Validation failed: ' + validationErrors.join(', '));
-    }
-
-    // Log the validated update data
-    console.log('Update request data:', updateData);
-
-    // Update the status using the order ID with the correct endpoint
-    let response, responseData, responseText;
+    const endpoint = `${API_BASE_URL}/api/delivery/${orderId}/status`;
+    const response = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updateData)
+    });
+    const responseText = await response.text();
+    let responseData;
     try {
-      const endpoint = `${API_BASE_URL}/api/delivery/${orderId}/status`;
-      console.log('Making PATCH request to:', endpoint);
-      
-      response = await fetch(endpoint, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(updateData)
-      });
-      responseText = await response.text();
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (e) {
-        responseData = { error: 'Invalid JSON', raw: responseText };
-      }
-      console.log('Server response:', responseData);
+      responseData = JSON.parse(responseText);
     } catch (e) {
-      console.error('Fetch error:', e);
-      throw new Error('Network or server error during PATCH');
+      responseData = { error: 'Invalid JSON', raw: responseText };
     }
-
+    console.log('Server response:', responseData);
     if (!response.ok) {
       const errorMessage = responseData.message || responseData.error || 'Failed to update status';
       console.error('Status update failed:', errorMessage);
       throw new Error(errorMessage);
     }
-
-    // Success!
     showToast('success', 'Success', `Order status updated to ${newStatus}`);
-
-    // Refresh the orders list
     await fetchOrders();
-
     return responseData;
-
   } catch (err) {
     showToast('error', 'Error', err.message);
   }
@@ -1165,77 +733,76 @@ const Orders = ({ navigation }) => {
         {orders.map((order) => (
           <View key={order.orderNumber || order._id} style={styles.simpleOrderCard}>
             <View style={styles.orderInfo}>
-              <Text style={styles.orderNumber}>Order #{order.orderNumber || order._id}</Text>
-              <View style={styles.customerInfo}>
-                <Text style={styles.customerName}>{order.customerContact?.name}</Text>
-                <Text style={styles.customerAddress}>{order.deliveryAddress?.street}, {order.deliveryAddress?.city}</Text>
-              </View>
+              <Text style={styles.orderNumber}>Order #{order.orderNumber ? order.orderNumber : order._id}</Text>
+            <View style={styles.customerInfo}>
+              <Text style={styles.customerName}>Customer Name: {order.customerName || (order.customerContact && typeof order.customerContact === 'object' ? order.customerContact.name : order.customerContact) || '-'}</Text>
+              <Text style={styles.customerAddress}>Address: {order.address?.street || order.deliveryAddress?.street || '-'}, {order.address?.city || order.deliveryAddress?.city || '-'}</Text>
+              <Text style={styles.customerAddress}>Gardener: {typeof order.gardener === 'object' ? order.gardener._id || '-' : order.gardener || '-'}</Text>
+              <Text style={styles.customerAddress}>Customer: {typeof order.customer === 'object' ? order.customer._id || '-' : order.customer || '-'}</Text>
+              <Text style={styles.customerAddress}>Vendor: {typeof order.vendor === 'object' ? order.vendor._id || '-' : order.vendor || '-'}</Text>
+              <Text style={styles.customerAddress}>Customer Contact: {order.customerContact && typeof order.customerContact === 'object' ? (order.customerContact._id || '-') : (order.customerContact || '-')}</Text>
+              <Text style={styles.customerAddress}>Total Amount: {order.totalAmount || '-'}</Text>
+              <Text style={styles.customerAddress}>Status: {order.status}</Text>
+              <Text style={styles.customerAddress}>Created At: {order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}</Text>
+              <Text style={styles.customerAddress}>Updated At: {order.updatedAt ? new Date(order.updatedAt).toLocaleString() : '-'}</Text>
+              <Text style={styles.customerAddress}>_id: {order._id}</Text>
             </View>
-            {order.items && (
               <View style={styles.itemsContainer}>
                 <Text style={styles.itemsLabel}>Items:</Text>
-                {order.items.map((item, idx) => (
-                  <View key={idx} style={styles.itemRow}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <View style={styles.itemDetails}>
-                      <Text style={styles.itemQuantity}>{item.quantity}kg</Text>
-                      <Text style={styles.itemPrice}>₱ {item.price?.toFixed(2)}</Text>
+                {Array.isArray(order.items) && order.items.length > 0 ? (
+                  order.items.map((item, idx) => (
+                    <View key={idx} style={styles.itemRow}>
+                      <Text style={styles.itemName}>Vegetable: {item.vegetable || '-'}</Text>
+                      <View style={styles.itemDetails}>
+                        <Text style={styles.itemQuantity}>Qty: {item.quantity || '-'}</Text>
+                        <Text style={styles.itemPrice}>Price: {item.price || '-'}</Text>
+                      </View>
                     </View>
-                  </View>
-                ))}
+                  ))
+                ) : (
+                  <Text style={styles.itemName}>No items</Text>
+                )}
               </View>
-            )}
-            
-            <View style={styles.timelineSection}>
-              <Text style={styles.timelineLabel}>Timeline:</Text>
-              <View style={styles.timelineContainer}>
-                {order.timeline?.map((event, index) => (
-                  <View key={index} style={styles.timelineEvent}>
-                    <View style={styles.timelineLeft}>
-                      <View style={[styles.timelineDot, { backgroundColor: getStatusColor(event.status) }]} />
-                      {index < order.timeline.length - 1 && <View style={styles.timelineLine} />}
+              <View style={styles.timelineSection}>
+                <Text style={styles.timelineLabel}>Timeline:</Text>
+                {Array.isArray(order.timeline) && order.timeline.length > 0 ? (
+                  order.timeline.map((event, idx) => (
+                    <View key={idx} style={styles.timelineEvent}>
+                      <View style={styles.timelineLeft}>
+                        <View style={styles.timelineDot} />
+                      </View>
+                      <View style={styles.timelineContent}>
+                        <Text style={styles.timelineStatus}>{event.status}</Text>
+                        <Text style={styles.timelineTime}>{event.timestamp ? new Date(event.timestamp).toLocaleString() : '-'}</Text>
+                      </View>
                     </View>
-                    <View style={styles.timelineContent}>
-                      <Text style={styles.timelineStatus}>{event.status}</Text>
-                      <Text style={styles.timelineTime}>
-                        {new Date(event.timestamp).toLocaleString('en-US', {
-                          month: 'numeric',
-                          day: 'numeric',
-                          year: 'numeric',
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          hour12: true
-                        })}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+                  ))
+                ) : (
+                  <Text style={styles.timelineStatus}>No timeline events</Text>
+                )}
               </View>
             </View>
-            
-            <TouchableOpacity
-            style={[
-              styles.updateButton,
-              updatingStatus === (order.orderNumber || order._id) && { opacity: 0.7 }
-            ]}
-            onPress={() => {
-              setSelectedOrder(order);
-              // Normalize the status when setting it
-              const normalizedStatus = order.status
-                .split(/[_\s]+/)
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                .join(' ');
-              setSelectedStatus(normalizedStatus);
-              setModalVisible(true);
-            }}
-            disabled={updatingStatus === (order.orderNumber || order._id)}
-            >
-              {updatingStatus === order._id ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.updateButtonText}>Update Status</Text>
-              )}
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              {renderStatusBadge(order.status)}
+              <TouchableOpacity
+                style={styles.updateButton}
+                onPress={() => {
+                  setSelectedOrder(order);
+                  setSelectedStatus(order.status);
+                  setModalVisible(true);
+                }}
+                disabled={updatingStatus === (order.orderNumber || order._id)}
+              >
+                {updatingStatus === (order.orderNumber || order._id) ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <MaterialIcons name="update" size={20} color="#fff" />
+                    <Text style={styles.updateButtonText}>Update Status</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         ))}
 
@@ -1259,7 +826,7 @@ const Orders = ({ navigation }) => {
               <Text style={styles.modalTitle}>Update Order Status</Text>
             </LinearGradient>
             <View style={styles.modalBody}>
-              <Text style={styles.modalOrderNumber}>Order #{selectedOrder?.orderNumber ? selectedOrder.orderNumber.slice(-6) : selectedOrder?._id.slice(-6)}</Text>
+              <Text style={styles.modalOrderNumber}>Order #{selectedOrder?.orderNumber ? selectedOrder.orderNumber.slice(-6) : selectedOrder?._id?.slice(-6)}</Text>
               <View style={styles.statusButtonsContainer}>
                 {[
                   { status: STATUS.PENDING, icon: 'time-outline', display: STATUS.PENDING },
@@ -1270,46 +837,46 @@ const Orders = ({ navigation }) => {
                   { status: STATUS.CANCELLED, icon: 'close-circle-outline', display: STATUS.CANCELLED }
                 ]
                 .filter(({ status }) => {
-                  // Only show valid next statuses
                   if (!selectedOrder) return true;
-                  const currentNormalizedStatus = selectedOrder.status.toLowerCase().replace(/_/g, ' ');
+                  const currentNormalizedStatus = selectedOrder.status?.toLowerCase().replace(/_/g, ' ');
                   const allowedNextStatuses = statusTransitionMap[currentNormalizedStatus] || [];
                   return allowedNextStatuses.includes(status) || status === selectedOrder.status;
                 })
                 .map(({ status, icon, display }) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[
-                        styles.statusButton,
-                        { 
-                          backgroundColor: '#f5f5f5',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          paddingVertical: 12,
-                          paddingHorizontal: 16,
-                          marginVertical: 4,
-                          borderRadius: 8
-                        }
-                      ]}
-                      onPress={() => setSelectedStatus(status)}
-                    >
-                      <View style={[
-                        styles.radioButton,
-                        selectedStatus === status && styles.radioButtonSelected
-                      ]}>
-                        {selectedStatus === status && (
-                          <View style={styles.radioButtonInner} />
-                        )}
-                      </View>
-                      <Ionicons
-                        name={icon}
-                        size={20}
-                        color="#666"
-                        style={{ marginHorizontal: 8 }}
-                      />
-                      <Text style={styles.statusButtonText}>{display}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.statusButton,
+                      { 
+                        backgroundColor: '#f5f5f5',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        marginVertical: 4,
+                        borderRadius: 8
+                      },
+                      selectedStatus === status && styles.statusButtonSelected
+                    ]}
+                    onPress={() => setSelectedStatus(status)}
+                  >
+                    <View style={[
+                      styles.radioButton,
+                      selectedStatus === status && styles.radioButtonSelected
+                    ]}>
+                      {selectedStatus === status && (
+                        <View style={styles.radioButtonInner} />
+                      )}
+                    </View>
+                    <Ionicons
+                      name={icon}
+                      size={20}
+                      color="#666"
+                      style={{ marginHorizontal: 8 }}
+                    />
+                    <Text style={styles.statusButtonText}>{display}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
               <View style={styles.modalActions}>
                 <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCancelButton}>
