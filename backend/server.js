@@ -43,6 +43,7 @@ app.use("/ai", require("./routes/ai")); // Ai
 app.use("/vegetables", require("./routes/vegetableManagement")); // vegetable management
 app.use("/plant", require("./routes/plantScan"));
 app.use("/openai", require("./routes/openai"));
+app.use("/user", require("./routes/fetchGardener")); 
 app.use("/api/delivery", deliveryRoutes); // Delivery routes
 app.use("/orders", require("./routes/orders")); // Orders route (RESTful, now handles POST and GET)
 // Start server on all network interfaces

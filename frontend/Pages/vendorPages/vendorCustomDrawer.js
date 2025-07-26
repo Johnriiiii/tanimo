@@ -24,7 +24,7 @@ const VendorCustomDrawer = ({ navigation, onClose }) => {
 
   const menuItems = [
     { id: '1', title: 'Dashboard', icon: 'home-outline', route: 'VendorHome' },
-    { id: '2', title: 'Browse Farmers', icon: 'people-outline', route: 'Gardener' },
+    { id: '2', title: 'Browse Farmers', icon: 'people-outline', route: 'GardenersScreen'},
     { id: '3', title: 'Vegetables', icon: 'leaf-outline', route: 'BrowseVegetables' },
     { id: '4', title: 'Orders', icon: 'cart-outline', route: 'VendorOrders' },
     { id: '5', title: 'Deliveries', icon: 'navigate-outline', route: 'DeliveryList' }
@@ -32,7 +32,7 @@ const VendorCustomDrawer = ({ navigation, onClose }) => {
 
   const bottomItems = [
     { id: '7', title: 'Settings', icon: 'settings-outline', route: 'VendorSettings' },
-    { id: '8', title: 'AboutUs', icon: 'help-circle-outline', route: 'VendorSupport' },
+    { id: '8', title: 'About Us', icon: 'help-circle-outline', route: 'AboutUs' },
   ];
 
   useEffect(() => {

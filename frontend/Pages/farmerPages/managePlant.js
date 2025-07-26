@@ -165,20 +165,35 @@ const VegetableManagement = ({ navigation }) => {
     );
   };
 
-  const confirmDelete = async (vegetableId) => {
-    try {
-      setIsLoading(true);
-      await authAxios.delete(`/vegetables/${vegetableId}`);
+const confirmDelete = async (vegetableId) => {
+  if (!vegetableId) {
+    Alert.alert('Error', 'Invalid vegetable ID');
+    return;
+  }
 
-      // Update the local state
-      setVegetables(vegetables.filter(veg => veg._id !== vegetableId));
-      Alert.alert('Success', 'Vegetable deleted successfully');
-    } catch (error) {
-      handleApiError(error, 'Failed to delete vegetable');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  try {
+    setIsLoading(true);
+
+    // Send delete request
+    await authAxios.delete(`/vegetables/${vegetableId}`);
+
+    // Remove from local state
+    setVegetables(prev => prev.filter(veg => veg._id !== vegetableId));
+
+    Alert.alert('Success', 'Vegetable deleted successfully');
+  } catch (error) {
+    console.error('Delete error:', error);
+    
+    // Handle error more gracefully
+    const message =
+      error?.response?.data?.message || 'Failed to delete vegetable. Please try again.';
+    Alert.alert('Error', message);
+
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   // Helper functions
   const validateVegetable = (formData) => {

@@ -1,7 +1,7 @@
 // Choose the appropriate API URL based on your environment
 const API_BASE_URL = __DEV__
-  ? "http://192.168.100.33:5000"  // Local development server IP
-  : "http://192.168.100.33:5000"; // Production server
+  ? "http://10.124.170.141:5000"  // Local development server IP
+  : "http://10.124.170.141:5000"; // Production server
 
 // Remove trailing slash if present
 if (API_BASE_URL.endsWith('/')) {

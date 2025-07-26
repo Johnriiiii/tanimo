@@ -107,8 +107,7 @@ const CustomDrawer = ({ navigation, onClose }) => {
   // Original bottom items
   const bottomItems = [
     { id: "9", title: "Settings", icon: "settings-outline", route: "Settings" },
-    { id: "10", title: "Plant Tips", icon: "bulb-outline", route: "PlantTips" },
-    { id: "11", title: "About Garden", icon: "information-circle-outline", route: "About" },
+    { id: "11", title: "About Garden", icon: "information-circle-outline", route: "AboutUs" },
   ]
 
   // Keep all existing effects and methods

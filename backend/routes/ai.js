@@ -1,4 +1,3 @@
-
 const express = require('express');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const router = express.Router();
@@ -151,7 +150,6 @@ router.delete('/conversations/:id', authenticate, async (req, res) => {
   }
 });
 
-
 // Update conversation title
 router.put('/conversations/:id', authenticate, async (req, res) => {
   try {
@@ -182,3 +180,4 @@ router.put('/conversations/:id', authenticate, async (req, res) => {
 });
 
 module.exports = router;
+
